@@ -1,6 +1,4 @@
-const API_BASE_URL = import.meta.env.PROD
-  ? 'https://rentalyzer-production.up.railway.app'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
+const API_BASE_URL = 'https://rentalyzer-production.up.railway.app';
 
 // ============================================================
 // AUTH SESSION HELPERS

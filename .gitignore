@@ -1,0 +1,29 @@
+# Security & Environment variables
+.env
+.env.local
+*.env
+
+# SQLite Database & Storage
+*.db
+*.sqlite
+*.sqlite3
+rentalyzer.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Node & Frontend
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# Logs & OS metadata
+*.log
+.DS_Store
+Thumbs.db

@@ -1,17 +1,17 @@
 # plan.md (Development Roadmap)
 
 ## Phase 1: Data Architecture & Backend Setup (FastAPI)
-*   [ ] Inisialisasi *environment* Python dan FastAPI.
-*   [ ] Translasi `schema.md` menjadi SQLAlchemy models.
-*   [ ] Buat *endpoint* CRUD untuk `Devices` (Katalog HP).
-*   [ ] Buat *endpoint* transaksi booking (Input penyewa -> generate ID booking).
-*   [ ] Buat *endpoint* Analytics Export (`/api/export/excel`).
+*   [x] Inisialisasi *environment* Python dan FastAPI.
+*   [x] Translasi `schema.md` menjadi SQLAlchemy models.
+*   [x] Buat *endpoint* CRUD untuk `Devices` (Katalog HP).
+*   [x] Buat *endpoint* transaksi booking (Input penyewa -> generate ID booking).
+*   [x] Buat *endpoint* Analytics Export (`/api/export/excel`).
 
 ## Phase 2: Frontend MVP (React Vite)
-*   [ ] Setup React (Vite) dan konfigurasi Tailwind.
-*   [ ] Bangun UI `Katalog` publik (Grid cards, ketersediaan stok).
-*   [ ] Bangun UI `Booking Form` dan *logic* redirect ke WhatsApp.
-*   [ ] Bangun UI `Admin Dashboard` (Tabel transaksi dengan fitur filter/sort).
+*   [x] Setup React (Vite) dan konfigurasi Tailwind.
+*   [x] Bangun UI `Katalog` publik (Grid cards, ketersediaan stok).
+*   [x] Bangun UI `Booking Form` dan *logic* redirect ke WhatsApp.
+*   [x] Bangun UI `Admin Dashboard` (Tabel transaksi dengan fitur filter/sort).
 
 ## Phase 3: Analytics Integration & Automation
 *   [ ] Setup n8n *webhook* (Opsional).

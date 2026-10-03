@@ -12,6 +12,7 @@ class DeviceStatus(str, PyEnum):
     BOOKED = "Booked"
     RENTED = "Rented"
     MAINTENANCE = "Maintenance"
+    ARCHIVED = "Archived"
 
 
 class TransactionStatus(str, PyEnum):
@@ -31,6 +32,8 @@ class Device(Base):
     imei_serial: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     purchase_price: Mapped[float] = mapped_column(Float, nullable=False)
     daily_rent_price: Mapped[float] = mapped_column(Float, nullable=False)
+    color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="Hitam")
+    image: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     status: Mapped[DeviceStatus] = mapped_column(
         Enum(DeviceStatus),
         default=DeviceStatus.AVAILABLE,
@@ -103,3 +106,17 @@ class Transaction(Base):
 
     device: Mapped["Device"] = relationship("Device", back_populates="transactions")
     customer: Mapped["Customer"] = relationship("Customer", back_populates="transactions")
+
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )

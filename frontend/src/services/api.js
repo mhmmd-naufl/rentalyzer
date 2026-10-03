@@ -158,3 +158,28 @@ export const exportCSV = async () => {
   link.remove();
   window.URL.revokeObjectURL(url);
 };
+
+// ============================================================
+// ADMIN (Protected): Restore Device
+// ============================================================
+export const restoreDevice = async (deviceId) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}/restore`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Gagal memulihkan unit HP.');
+  return response.json();
+};
+
+// ============================================================
+// ADMIN (Protected): Fetch Semua Device (Termasuk Arsip)
+// ============================================================
+export const fetchAdminDevices = async () => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/admin/devices`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('Gagal memuat seluruh unit HP.');
+  return response.json();
+};

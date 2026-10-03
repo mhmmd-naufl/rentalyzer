@@ -389,3 +389,26 @@ def export_raw_analytics(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+@app.get("/api/admin/devices", tags=["Admin - Devices"])
+def get_all_devices_admin(
+    current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Menarik seluruh data HP, termasuk yang Archived."""
+    return db.query(models.Device).order_by(models.Device.id.desc()).all()
+
+@app.put("/api/devices/{device_id}/restore", tags=["Admin - Devices"])
+def restore_device(
+    device_id: int,
+    current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Memulihkan device yang diarsipkan kembali menjadi Available."""
+    device = db.query(models.Device).filter(models.Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device tidak ditemukan.")
+    
+    device.status = models.DeviceStatus.AVAILABLE
+    db.commit()
+    return {"message": f"Unit {device.brand} {device.model} berhasil dipulihkan.", "device_id": device_id}

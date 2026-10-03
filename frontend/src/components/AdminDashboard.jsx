@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  Download, Plus, Search, CheckCircle2, Clock, AlertTriangle, 
+import {
+  Download, Plus, Search, CheckCircle2, Clock, AlertTriangle,
   XCircle, Smartphone, DollarSign, Activity, FileSpreadsheet, Archive,
   RotateCcw, ShieldAlert, RefreshCw
 } from 'lucide-react';
 import { formatRupiah } from '../services/dataService';
+import ArchivedDevices from './ArchivedDevices';
 
-export default function AdminDashboard({ 
-  devices = [], 
+export default function AdminDashboard({
+  devices = [],
   transactions = [],
   isLoading = false,
   onUpdateStatus,
@@ -43,7 +44,7 @@ export default function AdminDashboard({
   // ==========================================================
   // QUICK STATS (AT A GLANCE - PRD SECTION 3.B)
   // ==========================================================
-  
+
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const currentMonthRevenue = transactions
@@ -111,7 +112,7 @@ export default function AdminDashboard({
 
   const filteredTransactions = transactions.filter(t => {
     const matchesStatus = statusFilter === 'All' || t.status === statusFilter;
-    const matchesSearch = 
+    const matchesSearch =
       (t.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.customer_nik || '').includes(searchQuery) ||
       (t.customer_phone || '').includes(searchQuery);
@@ -120,10 +121,10 @@ export default function AdminDashboard({
 
   return (
     <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-      
+
       {/* Quick Stats (PRD Section 3.B) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
+
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Omzet Bulan Ini</span>
@@ -174,30 +175,38 @@ export default function AdminDashboard({
 
       {/* Main Admin Management Container */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
-        
+
         {/* Toolbar Header */}
         <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveAdminTab('transactions')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                activeAdminTab === 'transactions'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${activeAdminTab === 'transactions'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
             >
               Kontrol Transaksi ({transactions.length})
             </button>
 
             <button
               onClick={() => setActiveAdminTab('devices')}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                activeAdminTab === 'devices'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${activeAdminTab === 'devices'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
             >
               Master Data HP ({devices.length})
+            </button>
+
+            <button
+              onClick={() => setActiveAdminTab('archived')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${activeAdminTab === 'archived'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                }`}
+            >
+              Arsip HP
             </button>
           </div>
 
@@ -243,11 +252,10 @@ export default function AdminDashboard({
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
-                      statusFilter === st
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${statusFilter === st
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
                   >
                     {st}
                   </button>
@@ -329,12 +337,11 @@ export default function AdminDashboard({
                             )}
                           </td>
                           <td className="py-3 px-4">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              tx.status === 'Active' ? 'bg-blue-100 text-blue-800' :
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${tx.status === 'Active' ? 'bg-blue-100 text-blue-800' :
                               tx.status === 'Pending' ? 'bg-amber-100 text-amber-800' :
-                              tx.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
-                              tx.status === 'Overdue' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
-                            }`}>
+                                tx.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                                  tx.status === 'Overdue' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                              }`}>
                               {tx.status}
                             </span>
                           </td>
@@ -402,24 +409,22 @@ export default function AdminDashboard({
                         {formatRupiah(device.daily_rent_price)}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          device.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${device.status === 'Available' ? 'bg-emerald-100 text-emerald-800' :
                           device.status === 'Booked' ? 'bg-amber-100 text-amber-800' :
-                          device.status === 'Rented' ? 'bg-blue-100 text-blue-800' :
-                          device.status === 'Archived' ? 'bg-slate-200 text-slate-800' :
-                          'bg-slate-100 text-slate-600'
-                        }`}>
+                            device.status === 'Rented' ? 'bg-blue-100 text-blue-800' :
+                              device.status === 'Archived' ? 'bg-slate-200 text-slate-800' :
+                                'bg-slate-100 text-slate-600'
+                          }`}>
                           {device.status}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
                         <button
                           onClick={() => onArchiveDevice(device.id)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer ${
-                            isArchived
-                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                              : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                          }`}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer ${isArchived
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                            : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+                            }`}
                         >
                           <Archive className="w-3.5 h-3.5" />
                           <span>{isArchived ? 'Pulihkan' : 'Arsipkan'}</span>
@@ -430,6 +435,13 @@ export default function AdminDashboard({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Tab 3: Arsip HP */}
+        {activeAdminTab === 'archived' && (
+          <div className="p-4">
+            <ArchivedDevices />
           </div>
         )}
       </div>

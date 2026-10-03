@@ -183,3 +183,42 @@ export const fetchAdminDevices = async () => {
   if (!response.ok) throw new Error('Gagal memuat seluruh unit HP.');
   return response.json();
 };
+
+// ============================================================
+// ADMIN (Protected): Upload Image
+// ============================================================
+export const uploadDeviceImage = async (file) => {
+  const token = getAuthToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch(`${API_BASE_URL}/api/upload-image`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  
+  if (!response.ok) throw new Error('Gagal upload gambar.');
+  return response.json();
+};
+
+// ============================================================
+// ADMIN (Protected): Update Device
+// ============================================================
+export const updateDevice = async (deviceId, payload) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || 'Gagal memperbarui data HP.');
+  }
+  return response.json();
+};
+

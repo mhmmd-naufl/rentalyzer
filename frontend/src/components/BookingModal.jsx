@@ -5,6 +5,13 @@ import { ADMIN_WA_NUMBER, formatRupiah } from '../services/dataService';
 export default function BookingModal({ device, transactions = [], onClose, onBookingSuccess }) {
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const [selectedDuration, setSelectedDuration] = useState(24);
+  const getCurrentPrice = () => {
+    if (selectedDuration === 3) return device.price_3h || 0;
+    if (selectedDuration === 6) return device.price_6h || 0;
+    if (selectedDuration === 12) return device.price_12h || 0;
+    return device.price_24h || device.daily_rent_price || 0;
+  };
 
   const [formData, setFormData] = useState({
     name: '',

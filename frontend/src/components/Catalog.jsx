@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Sparkles, CheckCircle2, Clock, Ban, Wrench, Shield, Check, Calendar } from 'lucide-react';
 import { formatRupiah } from '../services/dataService';
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1591337676887-a217a6970a8a?w=600&auto=format&fit=crop&q=80';
 
 export default function Catalog({ devices, transactions = [], onSelectDevice }) {
   const [selectedBrand, setSelectedBrand] = useState('All');
@@ -162,12 +163,12 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
                 {/* Image & Status Badge (Greyscale Visual Cue for Booked/Rented) */}
                 <div className="relative aspect-4/3 bg-slate-100 overflow-hidden">
                   <img
-                    src={device.image}
+                    src={device.image || DEFAULT_IMAGE}
                     alt={device.model}
                     className={`w-full h-full object-cover transition-transform duration-300 ${
                       isBookedOrRented ? 'grayscale opacity-75 contrast-95' : 'group-hover:scale-105'
                     }`}
-                  />
+/>
                   <div className="absolute top-3 right-3">
                     {getStatusBadge(device.status, bookedUntil)}
                   </div>

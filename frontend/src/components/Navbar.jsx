@@ -23,19 +23,19 @@ export default function Navbar({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-xl tracking-tight text-slate-900">Rentalyzer</span>
+                <span className="font-bold text-xl tracking-tight text-slate-900">Notta</span>
                 {isAdminRoute ? (
                   <span className="text-xs bg-slate-900 text-white font-semibold px-2 py-0.5 rounded-full">
                     Admin Portal
                   </span>
                 ) : (
                   <span className="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-200/60">
-                    Rental HP
+                    Rental iPhone
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
-                {isAdminRoute ? 'Sistem Manajemen & Kontrol Operasional' : 'Sewa Smartphone Premium Harian'}
+                {isAdminRoute ? 'Sistem Manajemen & Kontrol Operasional' : 'Sewa iPhone Premium Harian'}
               </p>
             </div>
           </div>

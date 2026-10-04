@@ -9,6 +9,7 @@ import {
   Check,
 } from "lucide-react";
 import { formatRupiah } from "../services/dataService";
+import Pagination from "./Pagination";
 
 export default function Catalog({
   devices,
@@ -18,6 +19,8 @@ export default function Catalog({
   const [selectedBrand, setSelectedBrand] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const CATALOG_PAGE_SIZE = 9;
 
   // Exclude Archived devices from public catalog
   const publicDevices = devices.filter((d) => d.status !== "Archived");
@@ -35,6 +38,12 @@ export default function Catalog({
       : true;
     return matchesBrand && matchesSearch && matchesAvailability;
   });
+
+  // Reset ke halaman 1 saat filter berubah ditangani via key prop
+  const paginatedDevices = filteredDevices.slice(
+    (catalogPage - 1) * CATALOG_PAGE_SIZE,
+    catalogPage * CATALOG_PAGE_SIZE,
+  );
 
   // Find latest active booking end date for a device
   const getBookedUntilDate = (deviceId) => {
@@ -96,7 +105,7 @@ export default function Catalog({
             <span>Katalog Smartphone Premium</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-            Sewa iPhone & Android Flagship Harian Tanpa Ribet.
+            SEWA IPHONE BANYUWANGI TERMURAH.
           </h1>
           <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
             Unit original terawat untuk konten kreator, acara, liburan, dan
@@ -110,7 +119,7 @@ export default function Catalog({
             </div>
             <div className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-emerald-400" />
-              <span>Unit Siap Pakai & Bersih Akun</span>
+              <span>Unit Siap Pakai</span>
             </div>
           </div>
         </div>
@@ -123,7 +132,10 @@ export default function Catalog({
           {brands.map((brand) => (
             <button
               key={brand}
-              onClick={() => setSelectedBrand(brand)}
+              onClick={() => {
+                setSelectedBrand(brand);
+                setCatalogPage(1);
+              }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 cursor-pointer ${
                 selectedBrand === brand
                   ? "bg-indigo-600 text-white shadow-sm"
@@ -143,7 +155,10 @@ export default function Catalog({
               type="text"
               placeholder="Cari tipe HP..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCatalogPage(1);
+              }}
               className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-indigo-600 shadow-2xs"
             />
           </div>
@@ -169,7 +184,7 @@ export default function Catalog({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDevices.map((device) => {
+          {paginatedDevices.map((device) => {
             const isAvailable = device.status === "Available";
             const isBookedOrRented =
               device.status === "Booked" || device.status === "Rented";
@@ -268,6 +283,18 @@ export default function Catalog({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Catalog */}
+      {filteredDevices.length > CATALOG_PAGE_SIZE && (
+        <div className="mt-6 bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+          <Pagination
+            currentPage={catalogPage}
+            totalItems={filteredDevices.length}
+            pageSize={CATALOG_PAGE_SIZE}
+            onPageChange={setCatalogPage}
+          />
         </div>
       )}
     </div>

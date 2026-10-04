@@ -19,6 +19,8 @@ import {
   fetchAdminDevices,
   updateDevice,
   uploadDeviceImage,
+  deleteDevice,
+  extendTransaction,
 } from "./services/api";
 
 const BACKEND_DOWN_MESSAGE =
@@ -191,6 +193,30 @@ export default function App() {
     }
   };
 
+  const handleExtendTransaction = async (transactionId, extraHours) => {
+    try {
+      const result = await extendTransaction(transactionId, extraHours);
+      await loadTransactions();
+      showNotification(`Sewa diperpanjang ${extraHours < 24 ? extraHours + " jam" : extraHours / 24 + " hari"}. Biaya tambahan: ${result.extra_charge.toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 })}`);
+    } catch (err) {
+      showNotification(`Gagal perpanjang sewa: ${err.message}`, "error");
+    }
+  };
+
+  const handleDeleteDevice = async (deviceId) => {
+    try {
+      const result = await deleteDevice(deviceId);
+      await refreshDevices();
+      if (result.action === "archived") {
+        showNotification(result.message, "info");
+      } else {
+        showNotification(result.message);
+      }
+    } catch (err) {
+      showNotification(`Gagal menghapus unit: ${err.message}`, "error");
+    }
+  };
+
   const handleRestoreDevice = async (deviceId) => {
     try {
       await restoreDevice(deviceId);
@@ -305,6 +331,8 @@ export default function App() {
               onAddDevice={handleAddDevice}
               onArchiveDevice={handleArchiveDevice}
               onRestoreDevice={handleRestoreDevice}
+              onDeleteDevice={handleDeleteDevice}
+              onExtendTransaction={handleExtendTransaction}
               onExportCSV={handleExportCSV}
               onRefresh={() => {
                 refreshDevices();
@@ -340,12 +368,22 @@ export default function App() {
         />
       )}
 
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-        <p>
-          Notta Rent &bull; Sistem Operasional & Pipeline Analisis Bisnis Sewa
-          Smartphone
-        </p>
+      <footer className="bg-white border-t border-slate-200 py-8 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col items-center gap-3 text-center">
+          <p className="text-sm font-bold text-slate-800 tracking-tight">Sewa iPhone Banyuwangi</p>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
+            Sewa iPhone sejak 2023 &mdash; Privasi aman, harga termurah.
+            <br />
+            📍 Belakang Poliwangi &nbsp;&middot;&nbsp; Fast respon via WhatsApp.
+          </p>
+          <div className="w-12 h-px bg-slate-200" />
+          <p className="text-[8px] text-slate-300 tracking-wide">
+            built by <span className="font-medium text-slate-400">mhmmd.naufl</span>
+          </p>
+        </div>
       </footer>
+
+
     </div>
   );
 }

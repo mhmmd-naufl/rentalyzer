@@ -157,6 +157,10 @@ class TransactionStatusUpdate(BaseModel):
     penalty_fee: Optional[float] = Field(default=0.0, ge=0)
 
 
+class TransactionExtend(BaseModel):
+    extra_hours: int = Field(..., gt=0, le=168, description="Tambahan durasi dalam jam (max 7 hari)")
+
+
 class TransactionOut(BaseModel):
     id: int
     device_id: int

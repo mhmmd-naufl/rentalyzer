@@ -277,6 +277,63 @@ export const updateDevice = async (deviceId, payload) => {
   return response.json();
 };
 
+// ============================================================
+// ADMIN (Protected): Smart Delete Device
+// ============================================================
+export const deleteDevice = async (deviceId) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Gagal menghapus unit HP.");
+  return response.json();
+};
+
+// ============================================================
+// ADMIN (Protected): Device History
+// ============================================================
+export const fetchDeviceHistory = async (deviceId) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Gagal memuat riwayat device.");
+  return response.json();
+};
+
+// ============================================================
+// ADMIN (Protected): Extend Transaction
+// ============================================================
+export const extendTransaction = async (transactionId, extraHours) => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/transactions/${transactionId}/extend`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ extra_hours: extraHours }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || "Gagal memperpanjang sewa.");
+  }
+  return response.json();
+};
+
+// ============================================================
+// ADMIN (Protected): Analytics Summary
+// ============================================================
+export const fetchAnalyticsSummary = async () => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/analytics/summary`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Gagal memuat data analytics.");
+  return response.json();
+};
+
 export const uploadDeviceImage = async (file) => {
   const token = getAuthToken();
   const formData = new FormData();

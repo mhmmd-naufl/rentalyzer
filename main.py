@@ -1,7 +1,7 @@
 import io
 import os
 import csv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Annotated, List, Optional
 from dotenv import load_dotenv
 
@@ -14,6 +14,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
+from apscheduler.schedulers.background import BackgroundScheduler
 
 import models
 import schemas
@@ -136,6 +137,39 @@ def health_check() -> dict:
 # Serve uploaded images
 os.makedirs("uploads/devices", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+def auto_flag_overdue() -> None:
+    """Background job: auto-flag transaksi Active yang melewati end_date_expected."""
+    db: Session = next(get_db())
+    try:
+        now = datetime.now(timezone.utc)
+        overdue_txs = (
+            db.query(models.Transaction)
+            .filter(
+                models.Transaction.status == models.TransactionStatus.ACTIVE,
+                models.Transaction.end_date_expected < now,
+            )
+            .all()
+        )
+        for tx in overdue_txs:
+            tx.status = models.TransactionStatus.OVERDUE
+            if tx.device:
+                tx.device.status = models.DeviceStatus.RENTED
+        if overdue_txs:
+            db.commit()
+            print(f"[Scheduler] Auto-flagged {len(overdue_txs)} transaksi sebagai Overdue.")
+    except Exception as e:
+        print(f"[Scheduler] Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+# Jalankan scheduler overdue setiap 15 menit
+_scheduler = BackgroundScheduler()
+_scheduler.add_job(auto_flag_overdue, "interval", minutes=15, id="overdue_checker")
+_scheduler.start()
 
 
 # --- Startup Event: Auto Seed Default Admin & Sample Devices if Empty ---
@@ -536,6 +570,246 @@ def export_raw_analytics(
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
+@app.get("/api/devices/{device_id}/history", tags=["Admin - Devices"])
+def get_device_history(
+    device_id: int,
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Riwayat transaksi lengkap per device beserta summary analytics."""
+    device = db.query(models.Device).filter(models.Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device tidak ditemukan.")
+
+    txs = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.device_id == device_id)
+        .order_by(models.Transaction.created_at.desc())
+        .all()
+    )
+
+    total_revenue = sum(t.total_amount + t.penalty_fee for t in txs)
+    completed_txs = [t for t in txs if t.status == models.TransactionStatus.COMPLETED]
+    total_days_rented = sum(
+        max(1, (t.end_date_expected - t.start_date).days)
+        for t in completed_txs
+        if t.end_date_expected and t.start_date
+    )
+    roi_pct = round((total_revenue / device.purchase_price) * 100, 1) if device.purchase_price else 0
+
+    history = []
+    for t in txs:
+        days = max(1, (t.end_date_expected - t.start_date).days) if t.end_date_expected and t.start_date else 1
+        history.append({
+            "id": t.id,
+            "customer_name": t.customer.name if t.customer else "",
+            "customer_phone": t.customer.phone_whatsapp if t.customer else "",
+            "start_date": t.start_date.isoformat(),
+            "end_date_expected": t.end_date_expected.isoformat(),
+            "end_date_actual": t.end_date_actual.isoformat() if t.end_date_actual else None,
+            "duration_days": days,
+            "total_amount": t.total_amount,
+            "penalty_fee": t.penalty_fee,
+            "status": t.status.value,
+            "created_at": t.created_at.isoformat(),
+        })
+
+    return {
+        "device": {
+            "id": device.id,
+            "brand": device.brand,
+            "model": device.model,
+            "imei_serial": device.imei_serial,
+            "color": device.color,
+            "image": device.image,
+            "purchase_price": device.purchase_price,
+            "daily_rent_price": device.daily_rent_price,
+            "status": device.status.value,
+        },
+        "summary": {
+            "total_transactions": len(txs),
+            "completed_transactions": len(completed_txs),
+            "total_revenue": total_revenue,
+            "total_days_rented": total_days_rented,
+            "roi_percent": roi_pct,
+        },
+        "transactions": history,
+    }
+
+
+@app.post("/api/transactions/{transaction_id}/extend", tags=["Admin - Transactions"])
+def extend_transaction(
+    transaction_id: int,
+    payload: schemas.TransactionExtend,
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Perpanjang durasi sewa — update end_date_expected dan tambah biaya."""
+    tx = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan.")
+    if tx.status not in [models.TransactionStatus.ACTIVE, models.TransactionStatus.PENDING, models.TransactionStatus.OVERDUE]:
+        raise HTTPException(status_code=400, detail=f"Transaksi berstatus '{tx.status.value}' tidak bisa diperpanjang.")
+
+    device = tx.device
+    if not device:
+        raise HTTPException(status_code=404, detail="Device terkait tidak ditemukan.")
+
+    # Hitung harga tambahan berdasarkan durasi
+    if payload.extra_hours == 3:
+        extra_price = device.price_3h or 0
+    elif payload.extra_hours == 6:
+        extra_price = device.price_6h or 0
+    elif payload.extra_hours == 9:
+        extra_price = device.price_9h or 0
+    elif payload.extra_hours == 12:
+        extra_price = device.price_12h or 0
+    elif payload.extra_hours == 24:
+        extra_price = device.price_24h or device.daily_rent_price
+    else:
+        # Custom hours — hitung proporsional dari harga harian
+        extra_price = round((device.daily_rent_price / 24) * payload.extra_hours)
+
+    tx.end_date_expected = tx.end_date_expected + timedelta(hours=payload.extra_hours)
+    tx.total_amount = tx.total_amount + extra_price
+
+    # Kalau overdue, kembalikan ke active
+    if tx.status == models.TransactionStatus.OVERDUE:
+        tx.status = models.TransactionStatus.ACTIVE
+        if device.status == models.DeviceStatus.AVAILABLE:
+            device.status = models.DeviceStatus.RENTED
+
+    db.commit()
+    db.refresh(tx)
+    return {
+        "message": f"Sewa berhasil diperpanjang {payload.extra_hours} jam.",
+        "extra_hours": payload.extra_hours,
+        "extra_charge": extra_price,
+        "new_end_date": tx.end_date_expected.isoformat(),
+        "new_total_amount": tx.total_amount,
+    }
+
+
+@app.get("/api/analytics/summary", tags=["Admin - Analytics Export"])
+def get_analytics_summary(
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Data ringkasan analytics untuk dashboard — revenue, utilization, top devices."""
+    from collections import defaultdict
+
+    all_txs = db.query(models.Transaction).all()
+    all_devices = db.query(models.Device).filter(
+        models.Device.status != models.DeviceStatus.ARCHIVED
+    ).all()
+
+    now = datetime.now(timezone.utc)
+
+    # Revenue per bulan (12 bulan terakhir)
+    monthly_revenue: dict = defaultdict(float)
+    for t in all_txs:
+        if t.status in [models.TransactionStatus.COMPLETED, models.TransactionStatus.ACTIVE, models.TransactionStatus.OVERDUE]:
+            key = t.created_at.strftime("%Y-%m") if t.created_at else None
+            if key:
+                monthly_revenue[key] += t.total_amount + t.penalty_fee
+
+    # Sort dan ambil 12 bulan terakhir
+    sorted_months = sorted(monthly_revenue.keys())[-12:]
+    revenue_chart = [{"month": m, "revenue": round(monthly_revenue[m])} for m in sorted_months]
+
+    # Revenue & stats per device
+    device_stats = []
+    for d in all_devices:
+        d_txs = [t for t in all_txs if t.device_id == d.id]
+        completed = [t for t in d_txs if t.status == models.TransactionStatus.COMPLETED]
+        revenue = sum(t.total_amount + t.penalty_fee for t in d_txs
+                      if t.status in [models.TransactionStatus.COMPLETED,
+                                       models.TransactionStatus.ACTIVE,
+                                       models.TransactionStatus.OVERDUE])
+        days_rented = sum(
+            max(1, (t.end_date_expected - t.start_date).days)
+            for t in completed
+            if t.end_date_expected and t.start_date
+        )
+        roi_pct = round((revenue / d.purchase_price) * 100, 1) if d.purchase_price else 0
+        device_stats.append({
+            "id": d.id,
+            "label": f"{d.brand} {d.model}",
+            "brand": d.brand,
+            "model": d.model,
+            "color": d.color,
+            "status": d.status.value,
+            "purchase_price": d.purchase_price,
+            "daily_rent_price": d.daily_rent_price,
+            "total_transactions": len(d_txs),
+            "completed_transactions": len(completed),
+            "total_revenue": round(revenue),
+            "days_rented": days_rented,
+            "roi_percent": roi_pct,
+        })
+
+    # Sort top devices by revenue
+    top_devices = sorted(device_stats, key=lambda x: x["total_revenue"], reverse=True)[:5]
+
+    # Overall stats
+    total_revenue = sum(d["total_revenue"] for d in device_stats)
+    total_completed = sum(len([t for t in all_txs
+                               if t.device_id == d.id and t.status == models.TransactionStatus.COMPLETED])
+                          for d in all_devices)
+    overdue_count = len([t for t in all_txs if t.status == models.TransactionStatus.OVERDUE])
+    pending_count = len([t for t in all_txs if t.status == models.TransactionStatus.PENDING])
+    active_count = len([t for t in all_txs if t.status == models.TransactionStatus.ACTIVE])
+
+    return {
+        "overview": {
+            "total_revenue": round(total_revenue),
+            "total_transactions": len(all_txs),
+            "completed_transactions": total_completed,
+            "active_rentals": active_count,
+            "pending_bookings": pending_count,
+            "overdue_count": overdue_count,
+            "total_devices": len(all_devices),
+        },
+        "revenue_chart": revenue_chart,
+        "device_stats": device_stats,
+        "top_devices": top_devices,
+    }
+
+
+@app.get("/api/admin/wa-notify/{transaction_id}", tags=["Admin - Transactions"])
+def get_wa_notify_link(
+    transaction_id: int,
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Generate link WA untuk notifikasi admin tentang booking baru."""
+    tx = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaksi tidak ditemukan.")
+
+    customer = tx.customer
+    device = tx.device
+    admin_wa = os.getenv("ADMIN_WHATSAPP", "")
+
+    if not admin_wa:
+        raise HTTPException(status_code=400, detail="ADMIN_WHATSAPP belum diset di .env")
+
+    msg = (
+        f"*[BOOKING BARU]* #{tx.id}\n"
+        f"Penyewa: {customer.name if customer else '-'}\n"
+        f"NIK: {customer.nik if customer else '-'}\n"
+        f"WA: {customer.phone_whatsapp if customer else '-'}\n"
+        f"Unit: {device.brand} {device.model} ({device.color})\n"
+        f"Mulai: {tx.start_date.strftime('%d/%m/%Y %H:%M') if tx.start_date else '-'}\n"
+        f"Selesai: {tx.end_date_expected.strftime('%d/%m/%Y %H:%M') if tx.end_date_expected else '-'}\n"
+        f"Total: Rp {tx.total_amount:,.0f}"
+    )
+
+    import urllib.parse
+    wa_link = f"https://wa.me/{admin_wa}?text={urllib.parse.quote(msg)}"
+    return {"wa_link": wa_link, "message": msg}
+
+
 @app.get("/api/admin/devices", tags=["Admin - Devices"])
 def get_all_devices_admin(
     _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
@@ -543,6 +817,41 @@ def get_all_devices_admin(
 ):
     """Protected: Menarik seluruh data HP, termasuk yang Archived."""
     return db.query(models.Device).order_by(models.Device.id.desc()).all()
+
+@app.delete("/api/devices/{device_id}", tags=["Admin - Devices"])
+def delete_device(
+    device_id: int,
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Smart delete — hard delete jika belum ada transaksi, auto-archive jika sudah."""
+    device = db.query(models.Device).filter(models.Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device tidak ditemukan.")
+
+    has_transactions = db.query(models.Transaction).filter(
+        models.Transaction.device_id == device_id
+    ).first() is not None
+
+    if has_transactions:
+        # Ada riwayat transaksi — arsipkan saja agar data historis tetap terjaga
+        device.status = models.DeviceStatus.ARCHIVED
+        db.commit()
+        return {
+            "action": "archived",
+            "message": f"Unit {device.brand} {device.model} memiliki riwayat transaksi dan telah diarsipkan (data historis dijaga).",
+            "device_id": device_id,
+        }
+    else:
+        # Belum ada transaksi — aman untuk hard delete
+        db.delete(device)
+        db.commit()
+        return {
+            "action": "deleted",
+            "message": f"Unit {device.brand} {device.model} berhasil dihapus permanen.",
+            "device_id": device_id,
+        }
+
 
 @app.put("/api/devices/{device_id}/restore", tags=["Admin - Devices"])
 def restore_device(

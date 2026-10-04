@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^python -c \"import json, pathlib; p=pathlib\\.Path\\(r'c:\\\\Users\\\\ASUS\\\\Downloads\\\\logs\\.1791124044065\\.json'\\); print\\('exists', p\\.exists\\(\\), 'size', p\\.stat\\(\\)\\.st_size if p\\.exists\\(\\) else 0\\); data=json\\.loads\\(p\\.read_text\\(encoding='utf-8'\\)\\); print\\('items', len\\(data\\)\\);\nfor i,item in enumerate\\(data\\[:80\\]\\):\n    msg=item\\.get\\('message',''\\);\n    if msg:\n        print\\(f'--- \\{i\\} ---'\\);\n        print\\(msg\\[:1500\\]\\)\"$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

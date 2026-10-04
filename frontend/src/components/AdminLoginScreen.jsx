@@ -110,7 +110,7 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
     <div className="min-h-[85vh] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-md w-full shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="bg-linear-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-8 text-center relative">
+        <div className="bg-linear-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 text-center relative">
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/10">
             <Lock className="w-6 h-6 text-indigo-400" />
           </div>
@@ -126,7 +126,7 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
           /* ---------------- LOGIN ---------------- */
           <form
             onSubmit={handleSubmit}
-            className="p-8 space-y-4"
+            className="p-6 sm:p-8 space-y-4"
             autoComplete="off"
             data-1p-ignore="true"
             data-lpignore="true"
@@ -227,7 +227,7 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
           /* ---------------- LUPA PASSWORD ---------------- */
           <form
             onSubmit={codeRequested ? handleResetPassword : handleRequestCode}
-            className="p-8 space-y-4"
+            className="p-6 sm:p-8 space-y-4"
             autoComplete="off"
             data-1p-ignore="true"
             data-lpignore="true"

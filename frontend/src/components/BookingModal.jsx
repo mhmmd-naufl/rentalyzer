@@ -182,7 +182,7 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 transform transition-all animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
         <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 relative">
           <button
@@ -331,7 +331,7 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
             <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wider">
               Pilih Durasi Sewa
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {[3, 6, 9, 12, 24].map((hours) => {
                 const price = getDurationPrice(hours);
                 const isAvailable = price > 0;

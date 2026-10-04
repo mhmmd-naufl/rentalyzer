@@ -295,7 +295,7 @@ export default function App() {
               : "opacity-0 -translate-y-4 pointer-events-none"
           }`}
         >
-          <div className="bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-3 min-w-75 max-w-md">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-3 min-w-0 max-w-md w-[calc(100vw-2rem)]">
             <div
               className={`shrink-0 w-8 h-8 rounded-full ${toastBg[toastType]} flex items-center justify-center`}
             >

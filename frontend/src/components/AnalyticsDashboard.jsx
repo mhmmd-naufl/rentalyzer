@@ -197,7 +197,16 @@ export default function AnalyticsDashboard() {
             className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center"
           >
             <div
-              className={`inline-flex items-center justify-center w-8 h-8 rounded-xl bg-${color}-100 text-${color}-600 mb-2`}
+              className={`inline-flex items-center justify-center w-8 h-8 rounded-xl mb-2 ${
+                {
+                  emerald: "bg-emerald-100 text-emerald-600",
+                  indigo: "bg-indigo-100 text-indigo-600",
+                  blue: "bg-blue-100 text-blue-600",
+                  amber: "bg-amber-100 text-amber-600",
+                  rose: "bg-rose-100 text-rose-600",
+                  slate: "bg-slate-200 text-slate-600",
+                }[color] || "bg-slate-200 text-slate-600"
+              }`}
             >
               <Icon className="w-4 h-4" />
             </div>

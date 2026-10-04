@@ -176,7 +176,7 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
     const encodedMessage = encodeURIComponent(message);
     const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedMessage}`;
 
-    window.open(waUrl, "_blank");
+    window.location.href = waUrl;
     onClose();
   };
 

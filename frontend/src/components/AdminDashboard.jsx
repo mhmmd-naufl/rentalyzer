@@ -352,7 +352,7 @@ export default function AdminDashboard({
                 <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
                   {["All", "Pending", "Active", "Completed", "Overdue", "Canceled"].map((st) => (
                     <button key={st} onClick={() => { setStatusFilter(st); setTxPage(1); }}
-                      className={`px-3 py-2 sm:py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${statusFilter === st ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+                      className={`px-3 py-1.5 sm:py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${statusFilter === st ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                       {st}
                     </button>
                   ))}
@@ -476,7 +476,7 @@ export default function AdminDashboard({
                                 <button
                                   onClick={() => setExtendModal({ isOpen: true, transaction: tx, extraHours: 24 })}
                                   title="Perpanjang sewa"
-                                  className="inline-flex items-center gap-1 px-2 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer shrink-0">
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer shrink-0">
                                   <Clock className="w-3.5 h-3.5" />
                                 </button>
                               )}
@@ -531,19 +531,19 @@ export default function AdminDashboard({
                       <td className="py-3 px-4 text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={() => openEditModal(device)}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer">
                             <Pencil className="w-3.5 h-3.5" /><span>Edit</span>
                           </button>
                           <button onClick={() => setHistoryDevice(device)}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 transition-all cursor-pointer">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 transition-all cursor-pointer">
                             <History className="w-3.5 h-3.5" /><span>History</span>
                           </button>
                           <button onClick={() => onArchiveDevice(device.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 transition-all cursor-pointer">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 transition-all cursor-pointer">
                             <Archive className="w-3.5 h-3.5" /><span>Arsip</span>
                           </button>
                           <button onClick={() => handleDeleteClick(device)}
-                            className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer">
                             <Trash2 className="w-3.5 h-3.5" /><span>Hapus</span>
                           </button>
                         </div>
@@ -605,11 +605,11 @@ export default function AdminDashboard({
                           <td className="py-3 px-4 text-right">
                             <div className="flex justify-end gap-2">
                               <button onClick={() => onRestoreDevice(device.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer">
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 transition-all cursor-pointer">
                                 <RotateCcw className="w-3.5 h-3.5" /><span>Pulihkan</span>
                               </button>
                               <button onClick={() => handleDeleteClick(device)}
-                                className="inline-flex items-center gap-1 px-2.5 py-2 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer">
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 sm:py-1 text-xs font-medium rounded-lg border bg-slate-100 text-slate-600 border-slate-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-all cursor-pointer">
                                 <Trash2 className="w-3.5 h-3.5" /><span>Hapus</span>
                               </button>
                             </div>

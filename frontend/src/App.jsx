@@ -340,6 +340,7 @@ export default function App() {
               }}
               onUpdateDevice={handleUpdateDevice}
               onImageUpload={handleImageUpload}
+              onNotify={showNotification}
               editingDevice={editingDevice}
               setEditingDevice={setEditingDevice}
             />

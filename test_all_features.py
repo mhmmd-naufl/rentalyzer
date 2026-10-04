@@ -12,6 +12,7 @@ import main
 import models
 import database
 from auth import create_access_token, get_password_hash
+import auth
 
 # Seed admin ke test DB sebelum client dibuat
 database.Base.metadata.create_all(bind=database.engine)
@@ -413,6 +414,125 @@ def test_wa_notify():
           client.get(f"/api/admin/wa-notify/{tx_id}").status_code == 401)
 
 
+# 14. BOOKING: SATU INPUT TANGGAL+JAM (end dihitung server)
+def test_booking_single_datetime():
+    print("\n[14] Booking - Satu Tanggal+Jam, End Dihitung Server")
+    devs = client.get("/api/devices").json()
+    avail = next((d for d in devs if d["status"] == "Available"), None)
+    if not avail:
+        print("  [SKIP] Tidak ada device Available.")
+        return
+
+    r = client.post("/api/transactions", json={
+        "device_id": avail["id"],
+        "customer_name": "Tester Jam",
+        "customer_nik": "3201000000000088",
+        "customer_phone": "6281234560088",
+        "guarantee_type": "KTP Asli",
+        "start_date": "2026-12-20T15:30:00",
+        "duration_hours": 6,
+    })
+    check("Booking tanpa end_date_expected -> 200",
+          r.status_code == 200, f"body={r.text[:120]}")
+    if r.status_code != 200:
+        return
+    body = r.json()
+    check("Jam mulai tersimpan di DB (15:30)",
+          body["start_date"].startswith("2026-12-20T15:30"),
+          f"start={body['start_date']}")
+    check("end dihitung server = mulai + 6 jam (21:30)",
+          body["end_date_expected"].startswith("2026-12-20T21:30"),
+          f"end={body['end_date_expected']}")
+
+    hdrs = admin_headers()
+    txs = client.get("/api/transactions", headers=hdrs).json()
+    tx = next((t for t in txs if t["id"] == body["id"]), None)
+    check("List transaksi menyertakan duration_hours",
+          tx is not None and tx.get("duration_hours") == 6,
+          f"hours={tx.get('duration_hours') if tx else None}")
+
+    # Cleanup: batalkan agar device kembali Available
+    client.put(f"/api/transactions/{body['id']}/status",
+               json={"status": "Canceled", "penalty_fee": 0}, headers=hdrs)
+
+    # --- Verifikasi: NIK sama, nama input TERBARU yang dipakai ---
+    r2 = client.post("/api/transactions", json={
+        "device_id": avail["id"],
+        "customer_name": "Nama Kedua Beda",
+        "customer_nik": "3201000000000088",  # NIK sama dengan booking pertama
+        "customer_phone": "6281234560099",
+        "guarantee_type": "KTP Asli",
+        "start_date": "2026-12-21T09:00:00",
+        "duration_hours": 3,
+    })
+    check("Booking ulang dengan NIK sama -> 200",
+          r2.status_code == 200, f"body={r2.text[:100]}")
+    if r2.status_code == 200:
+        txs2 = client.get("/api/transactions", headers=hdrs).json()
+        tx2 = next((t for t in txs2 if t["id"] == r2.json()["id"]), None)
+        check("Nama sesuai input terbaru (bug nama fixed)",
+              tx2 is not None and tx2["customer_name"] == "Nama Kedua Beda",
+              f"name={tx2['customer_name'] if tx2 else None}")
+        client.put(f"/api/transactions/{r2.json()['id']}/status",
+                   json={"status": "Canceled", "penalty_fee": 0}, headers=hdrs)
+
+
+# 15. LUPA PASSWORD (kode reset via log server)
+def test_forgot_reset_password():
+    print("\n[15] Auth - Lupa Password (kode reset via log server)")
+
+    r = client.post("/api/auth/forgot-password",
+                    json={"username": "tidak_ada_xyz"})
+    check("Forgot (username tak dikenal) -> 200 pesan generik",
+          r.status_code == 200 and "message" in r.json(),
+          f"status={r.status_code}")
+
+    r2 = client.post("/api/auth/forgot-password", json={"username": "admin"})
+    check("Forgot (admin) -> 200", r2.status_code == 200, f"body={r2.text[:80]}")
+    entry = auth._reset_codes.get("admin")
+    check("Kode reset dibuat & dicetak ke log server", entry is not None)
+    if not entry:
+        return
+    code = entry[0]
+
+    r3 = client.post("/api/auth/reset-password", json={
+        "username": "admin", "code": "SALAH123", "new_password": "barubanget123",
+    })
+    check("Reset kode salah -> 400", r3.status_code == 400, f"status={r3.status_code}")
+
+    r4 = client.post("/api/auth/reset-password", json={
+        "username": "admin", "code": code, "new_password": "abc",
+    })
+    check("Password baru < 8 karakter ditolak -> 422", r4.status_code == 422)
+
+    r5 = client.post("/api/auth/reset-password", json={
+        "username": "admin", "code": code, "new_password": "barubanget123",
+    })
+    check("Reset kode benar -> 200", r5.status_code == 200, f"body={r5.text[:80]}")
+    if r5.status_code != 200:
+        return
+
+    r_old = client.post("/api/auth/login-json",
+                        json={"username": "admin", "password": "admin123"})
+    check("Login password lama -> 401", r_old.status_code == 401)
+    r_new = client.post("/api/auth/login-json",
+                        json={"username": "admin", "password": "barubanget123"})
+    check("Login password baru -> 200", r_new.status_code == 200)
+
+    r6 = client.post("/api/auth/reset-password", json={
+        "username": "admin", "code": code, "new_password": "barubanget456",
+    })
+    check("Kode bekas tidak bisa dipakai lagi -> 400", r6.status_code == 400)
+
+    # Restore password asli supaya suite tetap konsisten
+    _db = next(database.get_db())
+    admin_row = _db.query(models.Admin).filter(models.Admin.username == "admin").first()
+    admin_row.hashed_password = get_password_hash("admin123")
+    _db.commit()
+    _db.close()
+    check("Password admin direstore ke admin123", True)
+
+
 # MAIN
 if __name__ == "__main__":
     print("=" * 60)
@@ -433,6 +553,8 @@ if __name__ == "__main__":
     test_device_history()
     test_analytics_summary()
     test_wa_notify()
+    test_booking_single_datetime()
+    test_forgot_reset_password()
 
     # Cleanup — tutup semua koneksi dulu sebelum hapus file
     database.engine.dispose()

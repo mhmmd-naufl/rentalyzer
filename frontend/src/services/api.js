@@ -1,4 +1,6 @@
-const API_BASE_URL = "https://rentalyzer-production.up.railway.app";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://rentalyzer-production.up.railway.app";
 const AUTH_TOKEN_KEY = "notta_rent_token";
 const LEGACY_AUTH_TOKEN_KEY = "rentalyzer_token";
 const ADMIN_SESSION_KEY = "notta_rent_admin";
@@ -44,7 +46,14 @@ const extractApiErrorMessage = (payload) => {
   }
   if (typeof payload === "object") {
     if (payload.detail) return extractApiErrorMessage(payload.detail);
-    if (payload.msg) return payload.msg;
+    if (payload.msg) {
+      const field = Array.isArray(payload.loc)
+        ? payload.loc[payload.loc.length - 1]
+        : null;
+      return typeof field === "string"
+        ? `${field}: ${payload.msg}`
+        : payload.msg;
+    }
     if (payload.message) return payload.message;
     const firstValue = Object.values(payload).find(
       (value) => value !== null && value !== undefined,
@@ -52,6 +61,18 @@ const extractApiErrorMessage = (payload) => {
     if (firstValue) return extractApiErrorMessage(firstValue);
   }
   return "Terjadi kesalahan server.";
+};
+
+// ============================================================
+// IMAGE: URL gambar unit (path relatif di-resolve ke API base)
+// ============================================================
+export const DEFAULT_DEVICE_IMAGE =
+  "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&auto=format&fit=crop&q=80";
+
+export const resolveImageUrl = (img) => {
+  if (!img) return "";
+  if (/^https?:\/\//i.test(img)) return img;
+  return `${API_BASE_URL}${img.startsWith("/") ? "" : "/"}${img}`;
 };
 
 // ============================================================
@@ -79,6 +100,51 @@ export const loginAdmin = async (username, password) => {
         message: err.detail || "Username atau password salah.",
       };
     }
+  } catch {
+    return {
+      success: false,
+      message:
+        "Backend tidak dapat dijangkau. Pastikan server uvicorn aktif di port 8000.",
+    };
+  }
+};
+
+// ============================================================
+// PUBLIC: Lupa Password (kode reset via log server)
+// ============================================================
+export const forgotPassword = async (username) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: extractApiErrorMessage(data) };
+    }
+    return { success: true, data };
+  } catch {
+    return {
+      success: false,
+      message:
+        "Backend tidak dapat dijangkau. Pastikan server uvicorn aktif di port 8000.",
+    };
+  }
+};
+
+export const resetPassword = async (username, code, newPassword) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, code, new_password: newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { success: false, message: extractApiErrorMessage(data) };
+    }
+    return { success: true, data };
   } catch {
     return {
       success: false,
@@ -177,7 +243,7 @@ export const addDevice = async (devicePayload) => {
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Gagal menambah unit HP.");
+    throw new Error(extractApiErrorMessage(err) || "Gagal menambah unit HP.");
   }
   return response.json();
 };
@@ -271,7 +337,9 @@ export const updateDevice = async (deviceId, payload) => {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Gagal memperbarui unit HP.");
+    throw new Error(
+      extractApiErrorMessage(err) || "Gagal memperbarui unit HP.",
+    );
   }
 
   return response.json();
@@ -295,9 +363,12 @@ export const deleteDevice = async (deviceId) => {
 // ============================================================
 export const fetchDeviceHistory = async (deviceId) => {
   const token = getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/api/devices/${deviceId}/history`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/api/devices/${deviceId}/history`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
   if (!response.ok) throw new Error("Gagal memuat riwayat device.");
   return response.json();
 };
@@ -307,14 +378,17 @@ export const fetchDeviceHistory = async (deviceId) => {
 // ============================================================
 export const extendTransaction = async (transactionId, extraHours) => {
   const token = getAuthToken();
-  const response = await fetch(`${API_BASE_URL}/api/transactions/${transactionId}/extend`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  const response = await fetch(
+    `${API_BASE_URL}/api/transactions/${transactionId}/extend`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ extra_hours: extraHours }),
     },
-    body: JSON.stringify({ extra_hours: extraHours }),
-  });
+  );
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.detail || "Gagal memperpanjang sewa.");
@@ -334,6 +408,15 @@ export const fetchAnalyticsSummary = async () => {
   return response.json();
 };
 
+export const fetchAiAnalyticsSummary = async () => {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE_URL}/api/analytics/summary/ai`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Gagal memuat insight AI.");
+  return response.json();
+};
+
 export const uploadDeviceImage = async (file) => {
   const token = getAuthToken();
   const formData = new FormData();
@@ -349,7 +432,7 @@ export const uploadDeviceImage = async (file) => {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || "Gagal mengunggah gambar.");
+    throw new Error(extractApiErrorMessage(err) || "Gagal mengunggah gambar.");
   }
 
   return response.json();

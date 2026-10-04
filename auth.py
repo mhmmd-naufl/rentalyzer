@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -53,6 +54,40 @@ class AdminOut(BaseModel):
 class LoginJsonRequest(BaseModel):
     username: str
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    username: str
+
+
+class ResetPasswordRequest(BaseModel):
+    username: str
+    code: str = Field(..., min_length=6, max_length=16)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+# --- In-memory store untuk alur lupa password (tanpa email) ---
+# username -> (kode, masa berlaku)
+_reset_codes: dict[str, tuple[str, datetime]] = {}
+# username -> daftar waktu request (untuk throttle anti-brute-force)
+_forgot_attempts: dict[str, list[datetime]] = {}
+_reset_attempts: dict[str, list[datetime]] = {}
+
+_RESET_CODE_TTL_MINUTES = 10
+_FORGOT_MAX_ATTEMPTS = 3   # per 10 menit per username
+_RESET_MAX_ATTEMPTS = 5    # per 15 menit per username
+
+
+def _is_throttled(store: dict, username: str, max_attempts: int, window_minutes: int) -> bool:
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(minutes=window_minutes)
+    recent = [t for t in store.get(username, []) if t > window_start]
+    store[username] = recent
+    return len(recent) >= max_attempts
+
+
+def _record_attempt(store: dict, username: str) -> None:
+    store.setdefault(username, []).append(datetime.now(timezone.utc))
 
 
 # --- Password & Token Utilities ---
@@ -149,6 +184,74 @@ def login_json(
         username=admin.username,
         full_name=admin.full_name,
     )
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Annotated[Session, Depends(get_db)]):
+    """Minta kode reset password. Kode DITAMPILKAN DI LOG SERVER (terminal / log Railway),
+    bukan dikirim ke email — hanya owner yang bisa mengaksesnya."""
+    username = payload.username.strip()
+    if _is_throttled(_forgot_attempts, username, _FORGOT_MAX_ATTEMPTS, _RESET_CODE_TTL_MINUTES):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Terlalu banyak permintaan. Coba lagi beberapa menit lagi.",
+        )
+    _record_attempt(_forgot_attempts, username)
+
+    admin = db.query(models.Admin).filter(models.Admin.username == username).first()
+    if admin:
+        code = secrets.token_hex(4).upper()  # 8 karakter hex, contoh: A3F9C21B
+        _reset_codes[username] = (code, datetime.now(timezone.utc) + timedelta(minutes=_RESET_CODE_TTL_MINUTES))
+        # Dicetak ke log server — satu-satunya cara owner membacanya
+        print(
+            f"\n[AUTH][RESET] Kode reset password untuk '{username}': {code} "
+            f"(berlaku {_RESET_CODE_TTL_MINUTES} menit)\n",
+            flush=True,
+        )
+
+    # Pesan generik — tidak membocorkan apakah username terdaftar atau tidak
+    return {
+        "message": (
+            "Jika username terdaftar, kode reset sudah dibuat. "
+            "Minta owner membaca kode di log server (terminal lokal / tab Logs Railway), "
+            "lalu masukkan kode + password baru."
+        )
+    }
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Annotated[Session, Depends(get_db)]):
+    """Reset password menggunakan kode dari log server."""
+    username = payload.username.strip()
+    if _is_throttled(_reset_attempts, username, _RESET_MAX_ATTEMPTS, 15):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Terlalu banyak percobaan. Coba lagi 15 menit lagi.",
+        )
+    _record_attempt(_reset_attempts, username)
+
+    invalid = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Kode reset tidak valid atau sudah kedaluwarsa.",
+    )
+
+    admin = db.query(models.Admin).filter(models.Admin.username == username).first()
+    entry = _reset_codes.get(username)
+    if not admin or not entry:
+        raise invalid
+
+    code, expires_at = entry
+    if datetime.now(timezone.utc) > expires_at:
+        _reset_codes.pop(username, None)
+        raise invalid
+
+    if not secrets.compare_digest(code, payload.code.strip().upper()):
+        raise invalid
+
+    admin.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    _reset_codes.pop(username, None)
+    return {"message": "Password berhasil diubah. Silakan login dengan password baru."}
 
 
 @router.get("/me", response_model=AdminOut)

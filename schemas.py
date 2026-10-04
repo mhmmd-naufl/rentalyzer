@@ -10,9 +10,9 @@ from models import DeviceStatus, TransactionStatus
 class DeviceBase(BaseModel):
     brand: str = Field(..., min_length=2, max_length=50)
     model: str = Field(..., min_length=2, max_length=100)
-    imei_serial: str = Field(..., min_length=8, max_length=100)
+    imei_serial: str = Field(default="", max_length=100, description="IMEI / Nomor Seri (opsional, boleh kosong)")
     purchase_price: float = Field(..., gt=0, description="Harga modal beli harus lebih besar dari 0")
-    daily_rent_price: float = Field(..., gt=0, description="Harga sewa per hari harus lebih besar dari 0")
+    daily_rent_price: float = Field(default=0.0, ge=0, description="Harga sewa 24 jam (sinkron dari price_24h; boleh 0 jika 24 jam belum diatur)")
     color: Optional[str] = Field(default="Hitam", max_length=50)
     image: Optional[str] = Field(default=None, max_length=500)
     price_3h: Optional[float] = Field(default=0.0, ge=0)
@@ -38,7 +38,7 @@ class DeviceUpdate(BaseModel):
     model: Optional[str] = Field(default=None, min_length=2, max_length=100)
     imei_serial: Optional[str] = Field(default=None, min_length=8, max_length=100)
     purchase_price: Optional[float] = Field(default=None, gt=0)
-    daily_rent_price: Optional[float] = Field(default=None, gt=0)
+    daily_rent_price: Optional[float] = Field(default=None, ge=0)
     color: Optional[str] = Field(default=None, max_length=50)
     image: Optional[str] = Field(default=None, max_length=500)
     price_3h: Optional[float] = Field(default=None, ge=0)
@@ -59,6 +59,8 @@ class DeviceUpdate(BaseModel):
 class DeviceOut(DeviceBase):
     id: int
     created_at: datetime
+    # Jadwal sewa aktif terakhir yang masih berlaku (null jika unit tidak diblokir booking)
+    booked_until: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -115,7 +117,8 @@ class TransactionCreate(BaseModel):
     customer_phone: str = Field(..., min_length=10, max_length=20)
     guarantee_type: str = Field(..., min_length=3, max_length=50)
     start_date: datetime
-    end_date_expected: datetime
+    # Opsional — server menghitung otomatis: start_date + duration_hours (jam)
+    end_date_expected: Optional[datetime] = None
     duration_hours: Optional[int] = Field(default=24, ge=1, le=24)
     # Optional: sent by frontend, backend recalculates server-side
     snapshot_rent_price: Optional[float] = None
@@ -145,7 +148,9 @@ class TransactionCreate(BaseModel):
 
     @field_validator("end_date_expected")
     @classmethod
-    def validate_dates(cls, v: datetime, info) -> datetime:
+    def validate_dates(cls, v: Optional[datetime], info) -> Optional[datetime]:
+        if v is None:
+            return v
         start_date = info.data.get("start_date")
         if start_date and v <= start_date:
             raise ValueError("Tanggal selesai sewa harus lebih besar dari tanggal mulai.")

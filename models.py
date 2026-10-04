@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional, List
-from sqlalchemy import String, Float, DateTime, ForeignKey, Enum
+from sqlalchemy import String, Float, DateTime, ForeignKey, Enum, Index, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -29,7 +29,20 @@ class Device(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     brand: Mapped[str] = mapped_column(String(50), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
-    imei_serial: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    # IMEI/Nomor Seri opsional — unique hanya untuk nilai non-kosong
+    imei_serial: Mapped[str] = mapped_column(
+        String(100), index=True, nullable=False, default=""
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_devices_imei_serial",
+            "imei_serial",
+            unique=True,
+            postgresql_where=text("imei_serial <> ''"),
+            sqlite_where=text("imei_serial <> ''"),
+        ),
+    )
     purchase_price: Mapped[float] = mapped_column(Float, nullable=False)
     daily_rent_price: Mapped[float] = mapped_column(Float, nullable=False)
     color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="Hitam")

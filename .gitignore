@@ -9,6 +9,9 @@
 *.sqlite3
 rentalyzer.db
 
+# Uploaded device images (runtime data, bukan bagian repo)
+uploads/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,6 +1,9 @@
 import io
 import os
 import csv
+import json
+import requests
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, List, Optional
 from dotenv import load_dotenv
@@ -166,6 +169,45 @@ def auto_flag_overdue() -> None:
         db.close()
 
 
+def _release_stale_booked(db: Session) -> None:
+    """Lepas status Booked unit yang hanya diblokir booking Pending kadaluarsa
+    (end_date_expected sudah lewat). Booking Active/Overdue tetap memblokir."""
+    now = datetime.now()
+    stale: List[models.Device] = []
+    for device in db.query(models.Device).filter(
+        models.Device.status == models.DeviceStatus.BOOKED
+    ).all():
+        blocking = any(
+            tx.status in (models.TransactionStatus.ACTIVE, models.TransactionStatus.OVERDUE)
+            or (
+                tx.status == models.TransactionStatus.PENDING
+                and tx.end_date_expected is not None
+                and tx.end_date_expected >= now
+            )
+            for tx in device.transactions
+        )
+        if not blocking:
+            stale.append(device)
+    for device in stale:
+        device.status = models.DeviceStatus.AVAILABLE
+    if stale:
+        db.commit()
+        print(f"[AutoRelease] {len(stale)} unit dilepas dari status Booked (booking sudah lewat).")
+
+
+def _booked_until(device: models.Device) -> Optional[datetime]:
+    """Jadwal sewa terakhir yang masih berlaku untuk badge katalog (null jika sudah lewat)."""
+    now = datetime.now()
+    ends = [
+        tx.end_date_expected
+        for tx in device.transactions
+        if tx.status not in (models.TransactionStatus.COMPLETED, models.TransactionStatus.CANCELED)
+        and tx.end_date_expected is not None
+        and tx.end_date_expected >= now
+    ]
+    return max(ends) if ends else None
+
+
 # Jalankan scheduler overdue setiap 15 menit
 _scheduler = BackgroundScheduler()
 _scheduler.add_job(auto_flag_overdue, "interval", minutes=15, id="overdue_checker")
@@ -254,12 +296,18 @@ def get_devices(
     db: Session = Depends(get_db),
 ) -> List[models.Device]:
     """Retrieve all devices for public catalog (excluding archived devices)."""
+    # Booking Pending yang jadwalnya sudah lewat tidak lagi memblokir unit
+    _release_stale_booked(db)
+
     query = db.query(models.Device).filter(models.Device.status != models.DeviceStatus.ARCHIVED)
     if brand and brand != "All":
         query = query.filter(models.Device.brand == brand)
     if status_filter:
         query = query.filter(models.Device.status == status_filter)
-    return query.all()
+    devices = query.all()
+    for device in devices:
+        device.booked_until = _booked_until(device)
+    return devices
 
 
 @app.post("/api/transactions", response_model=schemas.TransactionOut, tags=["Transactions"])
@@ -270,6 +318,9 @@ def create_booking_transaction(
     db: Session = Depends(get_db),
 ) -> models.Transaction:
     """Public customer booking endpoint with anti-spam rate limiting (10 bookings/min per IP)."""
+    # Booking Pending yang sudah lewat tidak lagi memblokir — lepas status Booked basi dulu
+    _release_stale_booked(db)
+
     device = db.query(models.Device).filter(models.Device.id == payload.device_id).first()
     if not device or device.status == models.DeviceStatus.ARCHIVED:
         raise HTTPException(status_code=404, detail="Device tidak ditemukan atau sudah tidak tersedia.")
@@ -280,7 +331,7 @@ def create_booking_transaction(
             detail=f"Unit ini saat ini berstatus '{device.status.value}' dan belum siap disewa.",
         )
 
-    # Upsert customer by NIK
+    # Upsert customer by NIK — sinkronkan nama & WA dengan input terbaru
     customer = db.query(models.Customer).filter(models.Customer.nik == payload.customer_nik).first()
     if not customer:
         customer = models.Customer(
@@ -290,6 +341,9 @@ def create_booking_transaction(
         )
         db.add(customer)
         db.flush()
+    else:
+        customer.name = payload.customer_name
+        customer.phone_whatsapp = payload.customer_phone
 
     duration_hours = getattr(payload, "duration_hours", 24)
 
@@ -309,12 +363,15 @@ def create_booking_transaction(
 
     total_amount = float(rent_price)
 
+    # Waktu selesai dihitung otomatis: jam mulai + durasi (jam), disimpan lengkap dengan jamnya
+    end_date = payload.start_date + timedelta(hours=duration_hours)
+
     # Create Transaction with financial snapshot
     new_tx = models.Transaction(
         device_id=device.id,
         customer_id=customer.id,
         start_date=payload.start_date,
-        end_date_expected=payload.end_date_expected,
+        end_date_expected=end_date,
         snapshot_rent_price=device.daily_rent_price,
         total_amount=total_amount,
         penalty_fee=0.0,
@@ -341,7 +398,9 @@ def add_new_device(
     db: Session = Depends(get_db),
 ) -> models.Device:
     """Protected: Add new device unit to inventory."""
-    existing_imei = db.query(models.Device).filter(models.Device.imei_serial == payload.imei_serial).first()
+    existing_imei = None
+    if payload.imei_serial:  # IMEI opsional — cek duplikat hanya jika diisi
+        existing_imei = db.query(models.Device).filter(models.Device.imei_serial == payload.imei_serial).first()
     if existing_imei:
         raise HTTPException(status_code=400, detail="IMEI / Serial sudah terdaftar sebelumnya.")
 
@@ -394,8 +453,11 @@ def upload_device_image(
     with open(file_path, "wb") as buffer:
         buffer.write(file.file.read())
 
-    base_url = os.getenv("PUBLIC_BASE_URL", "https://rentalyzer-production.up.railway.app")
-    return {"url": f"{base_url.rstrip('/')}/uploads/devices/{safe_name}"}
+    # Path relatif agar otomatis benar di lokal maupun production (frontend memakai API_BASE_URL).
+    # PUBLIC_BASE_URL bisa di-set untuk memaksa URL absolut (mis. integrasi eksternal).
+    base_url = os.getenv("PUBLIC_BASE_URL")
+    path = f"/uploads/devices/{safe_name}"
+    return {"url": f"{base_url.rstrip('/')}{path}" if base_url else path}
 
 
 @app.put("/api/devices/{device_id}/archive", tags=["Admin - Devices"])
@@ -439,6 +501,7 @@ def get_admin_transactions(
     results = []
     for t in txs:
             days = max(1, (t.end_date_expected - t.start_date).days) if t.end_date_expected and t.start_date else 1
+            hours = max(1, round((t.end_date_expected - t.start_date).total_seconds() / 3600)) if t.end_date_expected and t.start_date else 1
             results.append({
                 "id": t.id,
                 "device_id": t.device_id,
@@ -455,6 +518,7 @@ def get_admin_transactions(
                 "end_date_actual": t.end_date_actual.isoformat() if t.end_date_actual else None,
                 "snapshot_rent_price": t.snapshot_rent_price,
                 "duration_days": days,
+                "duration_hours": hours,
                 "total_amount": t.total_amount,
                 "penalty_fee": t.penalty_fee,
                 "status": t.status.value,
@@ -504,14 +568,15 @@ def export_raw_analytics(
     end_date: Optional[str] = None,
 ):
     """Protected: Generate raw CSV export of all transactions and asset financial data for Looker Studio / Power BI."""
+    # Filter tanggal = PERIODE SEWA (overlap), konsisten dengan filter di dashboard
     query = db.query(models.Transaction)
     if start_date:
-        start_dt = datetime.fromisoformat(start_date)
-        query = query.filter(models.Transaction.created_at >= start_dt)
+        range_start = datetime.fromisoformat(start_date)
+        query = query.filter(models.Transaction.end_date_expected >= range_start)
     if end_date:
-        end_dt = datetime.fromisoformat(end_date)
-        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-        query = query.filter(models.Transaction.created_at <= end_dt)
+        range_end = datetime.fromisoformat(end_date)
+        range_end = range_end.replace(hour=23, minute=59, second=59, microsecond=999999)
+        query = query.filter(models.Transaction.start_date <= range_end)
     transactions = query.order_by(models.Transaction.id.desc()).all()
 
     output = io.StringIO()
@@ -534,6 +599,7 @@ def export_raw_analytics(
         "end_date_expected",
         "end_date_actual",
         "duration_days",
+        "duration_hours",
         "total_amount",
         "penalty_fee",
     ])
@@ -542,6 +608,7 @@ def export_raw_analytics(
         dev = t.device
         cust = t.customer
         days = max(1, (t.end_date_expected - t.start_date).days) if t.end_date_expected and t.start_date else 1
+        hours = max(1, round((t.end_date_expected - t.start_date).total_seconds() / 3600)) if t.end_date_expected and t.start_date else 1
         writer.writerow([
             t.id,
             t.created_at.isoformat() if t.created_at else "",
@@ -558,6 +625,7 @@ def export_raw_analytics(
             t.end_date_expected.isoformat() if t.end_date_expected else "",
             t.end_date_actual.isoformat() if t.end_date_actual else "",
             days,
+            hours,
             t.total_amount,
             t.penalty_fee,
         ])
@@ -600,6 +668,7 @@ def get_device_history(
     history = []
     for t in txs:
         days = max(1, (t.end_date_expected - t.start_date).days) if t.end_date_expected and t.start_date else 1
+        hours = max(1, round((t.end_date_expected - t.start_date).total_seconds() / 3600)) if t.end_date_expected and t.start_date else 1
         history.append({
             "id": t.id,
             "customer_name": t.customer.name if t.customer else "",
@@ -608,6 +677,7 @@ def get_device_history(
             "end_date_expected": t.end_date_expected.isoformat(),
             "end_date_actual": t.end_date_actual.isoformat() if t.end_date_actual else None,
             "duration_days": days,
+            "duration_hours": hours,
             "total_amount": t.total_amount,
             "penalty_fee": t.penalty_fee,
             "status": t.status.value,
@@ -688,6 +758,83 @@ def extend_transaction(
         "new_end_date": tx.end_date_expected.isoformat(),
         "new_total_amount": tx.total_amount,
     }
+
+
+def _fallback_ai_summary(payload: dict) -> str:
+    """Simple deterministic business summary when AI is unavailable or disabled."""
+    overview = payload.get("overview", {})
+    top_devices = payload.get("top_devices", [])
+    revenue_chart = payload.get("revenue_chart", [])
+    total_revenue = overview.get("total_revenue", 0)
+    overdue_count = overview.get("overdue_count", 0)
+    pending_count = overview.get("pending_bookings", 0)
+    active_rentals = overview.get("active_rentals", 0)
+
+    parts = []
+    if total_revenue > 0:
+        parts.append(f"Revenue total saat ini mencapai Rp {total_revenue:,.0f}.")
+    if overdue_count > 0:
+        parts.append(f"Ada {overdue_count} transaksi overdue yang perlu segera ditindaklanjuti.")
+    elif pending_count > 0:
+        parts.append(f"Ada {pending_count} transaksi pending yang masih menunggu konfirmasi.")
+    if active_rentals > 0:
+        parts.append(f"Saat ini ada {active_rentals} unit yang sedang disewa aktif.")
+    if top_devices:
+        top = top_devices[0]
+        parts.append(f"Unit paling laris saat ini adalah {top.get('label', 'unit tertentu')} dengan pendapatan Rp {top.get('total_revenue', 0):,.0f}.")
+    elif revenue_chart:
+        latest = revenue_chart[-1]
+        parts.append(f"Perkembangan revenue paling akhir mencatat Rp {latest.get('revenue', 0):,.0f}.")
+    if not parts:
+        return "Belum ada data transaksi yang cukup untuk menghasilkan insight bisnis yang berarti."
+    return " ".join(parts[:4])
+
+
+def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
+    """Generate admin-facing summary via Google AI Studio (Gemini REST API)."""
+    api_key = os.getenv("GOOGLE_AI_API_KEY")
+    if not api_key:
+        return _fallback_ai_summary(payload), "fallback"
+
+    try:
+        system_prompt = (
+            "Kamu adalah business analyst untuk usaha rental smartphone. "
+            "Berikan ringkasan singkat dalam Bahasa Indonesia yang profesional untuk admin. "
+            "Fokus pada revenue, unit paling laris, masalah seperti overdue atau pending, dan satu rekomendasi aksi. "
+            "Jawab maksimal 4 kalimat, rapi, dan bersifat bisnis/operasional."
+        )
+        
+        model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        body = {
+            "systemInstruction": {"parts": [{"text": system_prompt}]},
+            "contents": [
+                {"role": "user", "parts": [{"text": json.dumps(payload, ensure_ascii=False)}]}
+            ],
+            "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2048},
+        }
+
+        # 429/5xx biasanya transient (gangguan sesaat) — coba ulang sebelum jatuh ke fallback
+        response = None
+        for attempt in range(3):
+            response = requests.post(url, params={"key": api_key}, json=body, timeout=60)
+            if response.status_code in (429, 500, 502, 503, 504) and attempt < 2:
+                print(f"Gemini {response.status_code}, coba ulang {attempt + 1}/2 ...")
+                time.sleep(2 * (attempt + 1))
+                continue
+            break
+        response.raise_for_status()
+        data = response.json()
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        if content:
+            print(f"[AI Summary] OK via Gemini ({model})")
+            return content.strip(), "gemini"
+            
+    except Exception as e:
+        print(f"Gemini Error: {e}") 
+        pass
+
+    return _fallback_ai_summary(payload), "fallback"
 
 
 @app.get("/api/analytics/summary", tags=["Admin - Analytics Export"])
@@ -776,6 +923,23 @@ def get_analytics_summary(
     }
 
 
+@app.get("/api/analytics/summary/ai", tags=["Admin - Analytics Export"])
+def get_ai_analytics_summary(
+    _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
+    db: Session = Depends(get_db),
+):
+    """Protected: Generate concise AI-style business summary from analytics data."""
+    payload = get_analytics_summary(_current_admin, db)
+    summary, source = _generate_ai_business_summary(payload)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    return {
+        "summary": summary,
+        "source": source,
+        "source_label": "Gemini AI" if source == "gemini" else "Fallback",
+        "generated_at": generated_at,
+    }
+
+
 @app.get("/api/admin/wa-notify/{transaction_id}", tags=["Admin - Transactions"])
 def get_wa_notify_link(
     transaction_id: int,
@@ -816,6 +980,7 @@ def get_all_devices_admin(
     db: Session = Depends(get_db),
 ):
     """Protected: Menarik seluruh data HP, termasuk yang Archived."""
+    _release_stale_booked(db)
     return db.query(models.Device).order_by(models.Device.id.desc()).all()
 
 @app.delete("/api/devices/{device_id}", tags=["Admin - Devices"])

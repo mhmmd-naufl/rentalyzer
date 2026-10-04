@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, TrendingUp, Calendar, DollarSign, RotateCcw } from "lucide-react";
+import { X } from "lucide-react";
 import { formatRupiah } from "../services/dataService";
-import { fetchDeviceHistory } from "../services/api";
+import { fetchDeviceHistory, resolveImageUrl } from "../services/api";
 
 const STATUS_STYLE = {
   Active: "bg-blue-100 text-blue-800",
@@ -31,7 +31,7 @@ export default function DeviceHistoryModal({ device, onClose }) {
           <div className="flex items-center gap-3">
             {device.image && (
               <img
-                src={device.image}
+                src={resolveImageUrl(device.image)}
                 alt={device.model}
                 className="w-10 h-10 rounded-xl object-cover border border-slate-200"
               />
@@ -40,7 +40,7 @@ export default function DeviceHistoryModal({ device, onClose }) {
               <h3 className="text-base font-bold text-slate-900">
                 {device.brand} {device.model}
               </h3>
-              <p className="text-xs text-slate-400">{device.color} &middot; {device.imei_serial}</p>
+              <p className="text-xs text-slate-400">{device.color} &middot; {device.imei_serial || "—"}</p>
             </div>
           </div>
           <button
@@ -123,10 +123,10 @@ export default function DeviceHistoryModal({ device, onClose }) {
                           </div>
                           <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{tx.customer_name}</p>
                           <p className="text-[11px] text-slate-400">
-                            {new Date(tx.start_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                            {new Date(tx.start_date).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                             {" "}&rarr;{" "}
-                            {new Date(tx.end_date_expected).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                            {" · "}{tx.duration_days} hari
+                            {new Date(tx.end_date_expected).toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            {" · "}{tx.duration_hours ?? tx.duration_days} jam
                           </p>
                         </div>
                         <div className="text-right shrink-0 ml-3">

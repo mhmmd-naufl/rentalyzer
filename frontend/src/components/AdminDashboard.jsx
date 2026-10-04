@@ -19,12 +19,25 @@ import {
   BarChart2,
 } from "lucide-react";
 import { formatRupiah } from "../services/dataService";
+import { resolveImageUrl, DEFAULT_DEVICE_IMAGE } from "../services/api";
 import Pagination from "./Pagination";
 import DeviceHistoryModal from "./DeviceHistoryModal";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 
-const DEFAULT_IMAGE =
-  "https://unsplash.com/photos/space-gray-iphone-x-9e9PD9blAto";
+const DEFAULT_IMAGE = DEFAULT_DEVICE_IMAGE;
+
+const fmtDateTime = (iso) => {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 export default function AdminDashboard({
   devices = [],
@@ -42,12 +55,14 @@ export default function AdminDashboard({
   onImageUpload,
   editingDevice,
   setEditingDevice,
+  onNotify = () => {},
 }) {
   const [activeAdminTab, setActiveAdminTab] = useState("transactions");
   const [statusFilter, setStatusFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [transactionDateFrom, setTransactionDateFrom] = useState("");
   const [transactionDateTo, setTransactionDateTo] = useState("");
+  const [txSortOrder, setTxSortOrder] = useState("newest"); // "newest" | "oldest"
 
   const [txPage, setTxPage] = useState(1);
   const [txPageSize, setTxPageSize] = useState(10);
@@ -63,7 +78,6 @@ export default function AdminDashboard({
     model: "",
     imei_serial: "",
     purchase_price: "",
-    daily_rent_price: "",
     color: "Hitam",
     image: DEFAULT_IMAGE,
     price_3h: "",
@@ -123,7 +137,7 @@ export default function AdminDashboard({
 
   const openAddModal = () => {
     setEditingDevice(null);
-    setDeviceForm({ brand: "Apple", model: "", imei_serial: "", purchase_price: "", daily_rent_price: "", color: "Hitam", image: DEFAULT_IMAGE, price_3h: "", price_6h: "", price_9h: "", price_12h: "", price_24h: "" });
+    setDeviceForm({ brand: "Apple", model: "", imei_serial: "", purchase_price: "", color: "Hitam", image: DEFAULT_IMAGE, price_3h: "", price_6h: "", price_9h: "", price_12h: "", price_24h: "" });
     setSelectedFile(null);
     setImagePreview(DEFAULT_IMAGE);
     setShowDeviceModal(true);
@@ -133,13 +147,13 @@ export default function AdminDashboard({
     setEditingDevice(device);
     setDeviceForm({
       brand: device.brand, model: device.model, imei_serial: device.imei_serial,
-      purchase_price: device.purchase_price, daily_rent_price: device.daily_rent_price,
+      purchase_price: device.purchase_price,
       color: device.color, image: device.image || DEFAULT_IMAGE,
       price_3h: device.price_3h ?? "", price_6h: device.price_6h ?? "",
       price_9h: device.price_9h ?? "", price_12h: device.price_12h ?? "", price_24h: device.price_24h ?? "",
     });
     setSelectedFile(null);
-    setImagePreview(device.image || DEFAULT_IMAGE);
+    setImagePreview(resolveImageUrl(device.image) || DEFAULT_IMAGE);
     setShowDeviceModal(true);
   };
 
@@ -150,21 +164,37 @@ export default function AdminDashboard({
 
   const handleSubmitDevice = async (e) => {
     e.preventDefault();
-    if (!deviceForm.model || !deviceForm.imei_serial) return;
+    // Validasi lokal: cegah 422 dari backend dan tampilkan pesan yang jelas
+    const priceModal = parseFloat(deviceForm.purchase_price);
+    if (!deviceForm.model || deviceForm.model.trim().length < 2) {
+      onNotify("Model minimal 2 karakter.", "error");
+      return;
+    }
+    if (!(priceModal > 0)) {
+      onNotify("Harga Modal harus lebih dari 0.", "error");
+      return;
+    }
+    const adaHargaDurasi = ["price_3h", "price_6h", "price_9h", "price_12h", "price_24h"].some(
+      (key) => parseFloat(deviceForm[key]) > 0,
+    );
+    if (!adaHargaDurasi) {
+      onNotify("Isi minimal satu harga durasi.", "error");
+      return;
+    }
     let finalImageUrl = deviceForm.image || DEFAULT_IMAGE;
     if (selectedFile) {
       try {
         const uploaded = await onImageUpload(selectedFile);
         finalImageUrl = uploaded?.url || finalImageUrl;
       } catch (err) {
-        alert("Gagal upload gambar: " + err.message);
+        onNotify("Gagal upload gambar: " + err.message, "error");
         return;
       }
     }
     const payload = {
       ...deviceForm,
       purchase_price: parseFloat(deviceForm.purchase_price) || 0,
-      daily_rent_price: parseFloat(deviceForm.daily_rent_price) || 0,
+      daily_rent_price: parseFloat(deviceForm.price_24h) || 0,
       price_3h: parseFloat(deviceForm.price_3h) || 0,
       price_6h: parseFloat(deviceForm.price_6h) || 0,
       price_9h: parseFloat(deviceForm.price_9h) || 0,
@@ -177,7 +207,7 @@ export default function AdminDashboard({
       else { await onAddDevice(payload); }
       setShowDeviceModal(false);
     } catch (error) {
-      alert(error.message);
+      onNotify(error.message, "error");
     }
   };
 
@@ -187,22 +217,45 @@ export default function AdminDashboard({
     setDeleteConfirmModal({ isOpen: false, device: null });
   };
 
+  // Filter tanggal berdasarkan PERIODE SEWA (overlap): transaksi tampil jika
+  // jadwal sewa (start_date ~ end_date_expected) beririsan dengan rentang From–To
+  const rangeStart = transactionDateFrom ? new Date(`${transactionDateFrom}T00:00:00`) : null;
+  const rangeEnd = transactionDateTo ? new Date(`${transactionDateTo}T23:59:59`) : null;
+  const hasDateFilter = rangeStart !== null || rangeEnd !== null;
+
   const filteredTransactions = transactions.filter((t) => {
     const matchesStatus = statusFilter === "All" || t.status === statusFilter;
     const matchesSearch =
       (t.customer_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.customer_nik || "").includes(searchQuery) ||
       (t.customer_phone || "").includes(searchQuery);
-    const txDate = new Date(t.created_at || t.start_date || "");
-    const matchesFrom = !transactionDateFrom || txDate >= new Date(`${transactionDateFrom}T00:00:00`);
-    const matchesTo = !transactionDateTo || txDate <= new Date(`${transactionDateTo}T23:59:59`);
-    return matchesStatus && matchesSearch && matchesFrom && matchesTo;
+
+    if (!hasDateFilter) return matchesStatus && matchesSearch;
+
+    const txStart = new Date(t.start_date);
+    const txEnd = new Date(t.end_date_expected);
+    if (Number.isNaN(txStart.getTime()) || Number.isNaN(txEnd.getTime())) return false;
+
+    const overlaps =
+      (rangeEnd === null || txStart <= rangeEnd) &&
+      (rangeStart === null || txEnd >= rangeStart);
+    return matchesStatus && matchesSearch && overlaps;
   });
+
+  // Urutkan: terbaru (default) atau terlama berdasarkan waktu transaksi dibuat
+  const sortedTransactions = [...filteredTransactions].sort((a, b) => {
+    const ta = new Date(a.created_at || a.start_date || 0).getTime();
+    const tb = new Date(b.created_at || b.start_date || 0).getTime();
+    return txSortOrder === "newest" ? tb - ta : ta - tb;
+  });
+
+  const hasActiveFilter =
+    statusFilter !== "All" || searchQuery || transactionDateFrom || transactionDateTo;
 
   const archivedDevices = devices.filter((d) => d.status === "Archived");
   const activeDevices = devices.filter((d) => d.status !== "Archived");
 
-  const paginatedTransactions = filteredTransactions.slice((txPage - 1) * txPageSize, txPage * txPageSize);
+  const paginatedTransactions = sortedTransactions.slice((txPage - 1) * txPageSize, txPage * txPageSize);
   const paginatedDevices = activeDevices.slice((devPage - 1) * devPageSize, devPage * devPageSize);
   const paginatedArchived = archivedDevices.slice((archivePage - 1) * archivePageSize, archivePage * archivePageSize);
 
@@ -285,7 +338,7 @@ export default function AdminDashboard({
               <button onClick={openAddModal}
                 className="flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer">
                 <Plus className="w-4 h-4" />
-                <span>Tambah Unit HP</span>
+                <span>Tambah Unit</span>
               </button>
             )}
           </div>
@@ -311,7 +364,19 @@ export default function AdminDashboard({
                       onChange={(e) => { setSearchQuery(e.target.value); setTxPage(1); }}
                       className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-indigo-600" />
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 items-center ml-auto">
+                  <div className="flex flex-col sm:flex-row gap-2 items-center ml-auto"
+                    title="Filter periode sewa: transaksi tampil jika jadwal sewa (mulai–selesai) beririsan dengan rentang tanggal ini">
+                    <label className="flex items-center gap-2 text-[10px] font-medium text-slate-500 uppercase tracking-wide">
+                      <span>Urutkan</span>
+                      <select
+                        value={txSortOrder}
+                        onChange={(e) => { setTxSortOrder(e.target.value); setTxPage(1); }}
+                        className="border border-slate-200 rounded-lg bg-slate-50 px-2 py-1.5 text-xs text-slate-700 focus:outline-indigo-600 cursor-pointer"
+                      >
+                        <option value="newest">Terbaru</option>
+                        <option value="oldest">Terlama</option>
+                      </select>
+                    </label>
                     <label className="flex items-center gap-2 text-[10px] font-medium text-slate-500 uppercase tracking-wide">
                       <span>From</span>
                       <input type="date" value={transactionDateFrom} onChange={(e) => setTransactionDateFrom(e.target.value)}
@@ -323,13 +388,23 @@ export default function AdminDashboard({
                         className="border border-slate-200 rounded-lg bg-slate-50 px-2 py-1.5 text-xs text-slate-700 focus:outline-indigo-600" />
                     </label>
                     {(transactionDateFrom || transactionDateTo) && (
-                      <button type="button" onClick={() => { setTransactionDateFrom(""); setTransactionDateTo(""); }}
+                      <button type="button" onClick={() => { setTransactionDateFrom(""); setTransactionDateTo(""); setTxPage(1); }}
                         className="px-2.5 py-1.5 text-[10px] font-semibold rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100">
                         Reset
                       </button>
                     )}
                   </div>
                 </div>
+                <p className="text-[11px] text-slate-400">
+                  Menampilkan{" "}
+                  <span className="font-semibold text-slate-600">{sortedTransactions.length}</span>{" "}
+                  dari{" "}
+                  <span className="font-semibold text-slate-600">{transactions.length}</span>{" "}
+                  transaksi
+                  {hasActiveFilter && (
+                    <span className="text-indigo-600 font-medium"> &middot; filter aktif</span>
+                  )}
+                </p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -350,7 +425,7 @@ export default function AdminDashboard({
                   {isLoading ? (
                     <tr><td colSpan="8" className="py-8 text-center text-slate-400 text-xs">Memuat data...</td></tr>
                   ) : filteredTransactions.length === 0 ? (
-                    <tr><td colSpan="8" className="py-8 text-center text-slate-400 text-xs">Tidak ada transaksi.</td></tr>
+                    <tr><td colSpan="8" className="py-8 text-center text-slate-400 text-xs">{hasActiveFilter ? "Tidak ada transaksi yang cocok dengan filter. Coba ubah kata kunci / tanggal / status." : "Tidak ada transaksi."}</td></tr>
                   ) : (
                     paginatedTransactions.map((tx) => {
                       const dev = devices.find((d) => d.id === tx.device_id) || {};
@@ -363,11 +438,16 @@ export default function AdminDashboard({
                           </td>
                           <td className="py-3 px-4">
                             <p className="font-medium text-slate-900">{dev.brand} {dev.model}</p>
-                            <p className="text-[11px] text-slate-400 font-mono">IMEI: {dev.imei_serial}</p>
+                            <p className="text-[11px] text-slate-400 font-mono">IMEI: {dev.imei_serial || "—"}</p>
                           </td>
                           <td className="py-3 px-4">
-                            <p>{tx.start_date} s/d {tx.end_date_expected}</p>
-                            <p className="text-[11px] text-indigo-600 font-semibold">{tx.duration_days} Hari</p>
+                            <p>
+                              {fmtDateTime(tx.start_date)}{" "}
+                              &rarr; {fmtDateTime(tx.end_date_expected)}
+                            </p>
+                            <p className="text-[11px] text-indigo-600 font-semibold">
+                              {tx.duration_hours} Jam
+                            </p>
                           </td>
                           <td className="py-3 px-4 font-bold text-slate-900">{formatRupiah(tx.total_amount)}</td>
                           <td className="py-3 px-4">
@@ -424,7 +504,7 @@ export default function AdminDashboard({
                     <th className="py-3 px-4">Unit HP</th>
                     <th className="py-3 px-4">IMEI / Serial</th>
                     <th className="py-3 px-4">Harga Modal (ROI)</th>
-                    <th className="py-3 px-4">Harga Sewa / Hari</th>
+                    <th className="py-3 px-4">Harga Sewa / 24 Jam</th>
                     <th className="py-3 px-4">Status Inventaris</th>
                     <th className="py-3 px-4 text-right">Aksi</th>
                   </tr>
@@ -433,16 +513,16 @@ export default function AdminDashboard({
                   {paginatedDevices.map((device) => (
                     <tr key={device.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3 px-4 flex items-center gap-3">
-                        <img src={device.image || DEFAULT_IMAGE} alt={device.model}
+                        <img src={resolveImageUrl(device.image) || DEFAULT_IMAGE} alt={device.model}
                           className="w-10 h-10 object-cover rounded-lg border border-slate-200" />
                         <div>
                           <p className="font-semibold text-slate-900">{device.brand} {device.model}</p>
                           <p className="text-[11px] text-slate-400">{device.color}</p>
                         </div>
                       </td>
-                      <td className="py-3 px-4 font-mono font-medium text-slate-700">{device.imei_serial}</td>
+                      <td className="py-3 px-4 font-mono font-medium text-slate-700">{device.imei_serial || "—"}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900">{formatRupiah(device.purchase_price)}</td>
-                      <td className="py-3 px-4 font-bold text-indigo-700">{formatRupiah(device.daily_rent_price)}</td>
+                      <td className="py-3 px-4 font-bold text-indigo-700">{formatRupiah(device.price_24h || device.daily_rent_price)}</td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${device.status === "Available" ? "bg-emerald-100 text-emerald-800" : device.status === "Booked" ? "bg-amber-100 text-amber-800" : device.status === "Rented" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-600"}`}>
                           {device.status}
@@ -498,7 +578,7 @@ export default function AdminDashboard({
                         <th className="py-3 px-4">Unit HP</th>
                         <th className="py-3 px-4">IMEI / Serial</th>
                         <th className="py-3 px-4">Harga Modal</th>
-                        <th className="py-3 px-4">Harga Sewa / Hari</th>
+                        <th className="py-3 px-4">Harga Sewa / 24 Jam</th>
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4 text-right">Aksi</th>
                       </tr>
@@ -507,16 +587,16 @@ export default function AdminDashboard({
                       {paginatedArchived.map((device) => (
                         <tr key={device.id} className="hover:bg-slate-50/80 transition-colors opacity-75">
                           <td className="py-3 px-4 flex items-center gap-3">
-                            <img src={device.image || DEFAULT_IMAGE} alt={device.model}
+                            <img src={resolveImageUrl(device.image) || DEFAULT_IMAGE} alt={device.model}
                               className="w-10 h-10 object-cover rounded-lg border border-slate-200 grayscale" />
                             <div>
                               <p className="font-semibold text-slate-900">{device.brand} {device.model}</p>
                               <p className="text-[11px] text-slate-400">{device.color}</p>
                             </div>
                           </td>
-                          <td className="py-3 px-4 font-mono font-medium text-slate-700">{device.imei_serial}</td>
+                          <td className="py-3 px-4 font-mono font-medium text-slate-700">{device.imei_serial || "—"}</td>
                           <td className="py-3 px-4 font-semibold text-slate-900">{formatRupiah(device.purchase_price)}</td>
-                          <td className="py-3 px-4 font-bold text-indigo-700">{formatRupiah(device.daily_rent_price)}</td>
+                          <td className="py-3 px-4 font-bold text-indigo-700">{formatRupiah(device.price_24h || device.daily_rent_price)}</td>
                           <td className="py-3 px-4">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-800">
                               {device.status}
@@ -627,24 +707,16 @@ export default function AdminDashboard({
                   className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-indigo-600" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">IMEI / Nomor Seri</label>
-                <input type="text" required placeholder="Contoh: 356789012345678" value={deviceForm.imei_serial}
+                <label className="block text-xs font-semibold text-slate-700 mb-1">IMEI / Nomor Seri (Opsional)</label>
+                <input type="text" placeholder="Opsional — contoh: 356789012345678" value={deviceForm.imei_serial}
                   onChange={(e) => setDeviceForm({ ...deviceForm, imei_serial: e.target.value })}
                   className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-indigo-600" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Harga Modal (Rp)</label>
-                  <input type="number" required placeholder="15000000" value={deviceForm.purchase_price}
-                    onChange={(e) => setDeviceForm({ ...deviceForm, purchase_price: e.target.value })}
-                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-indigo-600" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Harga Sewa / Hari</label>
-                  <input type="number" required placeholder="250000" value={deviceForm.daily_rent_price}
-                    onChange={(e) => setDeviceForm({ ...deviceForm, daily_rent_price: e.target.value })}
-                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-indigo-600" />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Harga Modal (Rp)</label>
+                <input type="number" required placeholder="15000000" value={deviceForm.purchase_price}
+                  onChange={(e) => setDeviceForm({ ...deviceForm, purchase_price: e.target.value })}
+                  className="w-full text-xs p-2.5 border border-slate-200 rounded-xl focus:outline-indigo-600" />
               </div>
               <div className="pt-2">
                 <label className="block text-xs font-semibold text-slate-700 mb-2">Harga Sewa Per Durasi</label>

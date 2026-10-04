@@ -9,11 +9,11 @@ import {
   Check,
 } from "lucide-react";
 import { formatRupiah } from "../services/dataService";
+import { resolveImageUrl, DEFAULT_DEVICE_IMAGE } from "../services/api";
 import Pagination from "./Pagination";
 
 export default function Catalog({
   devices,
-  transactions = [],
   onSelectDevice,
 }) {
   const [selectedBrand, setSelectedBrand] = useState("All");
@@ -45,24 +45,21 @@ export default function Catalog({
     catalogPage * CATALOG_PAGE_SIZE,
   );
 
-  // Find latest active booking end date for a device
-  const getBookedUntilDate = (deviceId) => {
-    const activeTx = transactions.find(
-      (t) =>
-        t.device_id === deviceId &&
-        (t.status === "Active" || t.status === "Pending"),
-    );
-    if (!activeTx || !activeTx.end_date_expected) return null;
+  // Jadwal sewa terakhir yang masih berlaku (dihitung backend; null jika sudah lewat)
+  const getBookedUntilDate = (device) => {
+    const raw = device.booked_until;
+    if (!raw) return null;
 
     try {
-      const d = new Date(activeTx.end_date_expected);
-      return d.toLocaleDateString("id-ID", {
+      return new Date(raw).toLocaleString("id-ID", {
         day: "numeric",
         month: "short",
         year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch {
-      return activeTx.end_date_expected;
+      return raw;
     }
   };
 
@@ -109,8 +106,9 @@ export default function Catalog({
           </h1>
           <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
             Unit original terawat untuk konten kreator, acara, liburan, dan
-            pengujian aplikasi. Proses verifikasi instan via WhatsApp.
+            kebutuhan lainnya.
           </p>
+          <p>Proses verifikasi instan via WhatsApp.</p>
 
           <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-300">
             <div className="flex items-center gap-1.5">
@@ -188,7 +186,7 @@ export default function Catalog({
             const isAvailable = device.status === "Available";
             const isBookedOrRented =
               device.status === "Booked" || device.status === "Rented";
-            const bookedUntil = getBookedUntilDate(device.id);
+            const bookedUntil = getBookedUntilDate(device);
 
             return (
               <div
@@ -202,7 +200,7 @@ export default function Catalog({
                 {/* Image & Status Badge (Greyscale Visual Cue for Booked/Rented) */}
                 <div className="relative aspect-4/3 bg-slate-100 overflow-hidden">
                   <img
-                    src={device.image}
+                    src={resolveImageUrl(device.image) || DEFAULT_DEVICE_IMAGE}
                     alt={device.model}
                     className={`w-full h-full object-cover transition-transform duration-300 ${
                       isBookedOrRented
@@ -227,24 +225,15 @@ export default function Catalog({
                       {device.model}
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 font-mono">
-                      SN/IMEI: {device.imei_serial}
+                      SN/IMEI: {device.imei_serial || "—"}
                     </p>
                   </div>
 
                   <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] text-slate-400 uppercase font-semibold">
+                      <span className="block text-[11px] text-slate-400 uppercase font-semibold">
                         Harga Sewa
                       </span>
-                      <p
-                        className={`text-lg font-bold ${isBookedOrRented ? "text-slate-600" : "text-indigo-700"}`}
-                      >
-                        {formatRupiah(device.daily_rent_price)}
-                        <span className="text-xs text-slate-500 font-normal">
-                          {" "}
-                          /hari
-                        </span>
-                      </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {[3, 6, 9, 12, 24].map((hours) => {
                           const price =

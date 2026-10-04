@@ -1,10 +1,26 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, DollarSign, Smartphone, AlertTriangle, Clock, CheckCircle2, RefreshCw } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  DollarSign,
+  Smartphone,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  RefreshCw,
+} from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import { formatRupiah } from "../services/dataService";
-import { fetchAnalyticsSummary } from "../services/api";
+import {
+  fetchAnalyticsSummary,
+  fetchAiAnalyticsSummary,
+} from "../services/api";
 
 const COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
 
@@ -28,7 +44,11 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function AnalyticsDashboard() {
   const [data, setData] = useState(null);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiSource, setAiSource] = useState("fallback");
+  const [updatedAt, setUpdatedAt] = useState("");
   const [loading, setLoading] = useState(true);
+  const [aiLoading, setAiLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = () => {
@@ -39,7 +59,31 @@ export default function AnalyticsDashboard() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  const loadAiSummary = () => {
+    setAiLoading(true);
+    fetchAiAnalyticsSummary()
+      .then((payload) => {
+        setAiSummary(payload.summary || "Insight AI belum tersedia.");
+        setAiSource(payload.source || "fallback");
+        setUpdatedAt(payload.generated_at || "");
+      })
+      .catch(() => {
+        setAiSummary("Insight AI belum tersedia saat ini.");
+        setAiSource("fallback");
+        setUpdatedAt("");
+      })
+      .finally(() => setAiLoading(false));
+  };
+
+  useEffect(() => {
+    // State awal sudah loading=true — fetch ditunda 1 tick agar tidak ada
+    // setState sinkron di dalam effect (react-hooks/set-state-in-effect)
+    const timer = setTimeout(() => {
+      load();
+      loadAiSummary();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (loading) {
     return (
@@ -62,22 +106,105 @@ export default function AnalyticsDashboard() {
 
   return (
     <div className="p-5 space-y-6">
+      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-sky-50 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+              AI Summary
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Insight otomatis dari data operasional
+            </p>
+          </div>
+          <button
+            onClick={loadAiSummary}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-50"
+            type="button"
+          >
+            <RefreshCw
+              className={`w-3 h-3 ${aiLoading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
+        <p className="mt-3 text-sm leading-6 text-slate-700">
+          {aiLoading ? "Menyiapkan insight AI..." : aiSummary}
+        </p>
+        <div className="mt-3 flex items-center justify-between gap-3 text-[10px] text-slate-500">
+          <span className="font-medium">
+            {aiLoading
+              ? "Mengambil data terbaru..."
+              : aiSource === "gemini"
+                ? "Sumber: Gemini AI"
+                : "Sumber: Fallback"}
+          </span>
+          <span>
+            {updatedAt
+              ? `Diperbarui pada ${new Date(updatedAt).toLocaleString("id-ID", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}`
+              : "Belum ada data update"}
+          </span>
+        </div>
+      </div>
+
       {/* Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: "Total Revenue", value: formatRupiah(overview.total_revenue), icon: DollarSign, color: "emerald" },
-          { label: "Total Transaksi", value: overview.total_transactions, icon: CheckCircle2, color: "indigo" },
-          { label: "Sewa Aktif", value: overview.active_rentals, icon: Smartphone, color: "blue" },
-          { label: "Pending", value: overview.pending_bookings, icon: Clock, color: "amber" },
-          { label: "Overdue", value: overview.overdue_count, icon: AlertTriangle, color: "rose" },
-          { label: "Total Unit", value: overview.total_devices, icon: Smartphone, color: "slate" },
+          {
+            label: "Total Revenue",
+            value: formatRupiah(overview.total_revenue),
+            icon: DollarSign,
+            color: "emerald",
+          },
+          {
+            label: "Total Transaksi",
+            value: overview.total_transactions,
+            icon: CheckCircle2,
+            color: "indigo",
+          },
+          {
+            label: "Sewa Aktif",
+            value: overview.active_rentals,
+            icon: Smartphone,
+            color: "blue",
+          },
+          {
+            label: "Pending",
+            value: overview.pending_bookings,
+            icon: Clock,
+            color: "amber",
+          },
+          {
+            label: "Overdue",
+            value: overview.overdue_count,
+            icon: AlertTriangle,
+            color: "rose",
+          },
+          {
+            label: "Total Unit",
+            value: overview.total_devices,
+            icon: Smartphone,
+            color: "slate",
+          },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center">
-            <div className={`inline-flex items-center justify-center w-8 h-8 rounded-xl bg-${color}-100 text-${color}-600 mb-2`}>
+          <div
+            key={label}
+            className="bg-slate-50 border border-slate-100 rounded-2xl p-3 text-center"
+          >
+            <div
+              className={`inline-flex items-center justify-center w-8 h-8 rounded-xl bg-${color}-100 text-${color}-600 mb-2`}
+            >
               <Icon className="w-4 h-4" />
             </div>
             <p className="text-lg font-bold text-slate-900">{value}</p>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">{label}</p>
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mt-0.5">
+              {label}
+            </p>
           </div>
         ))}
       </div>
@@ -88,16 +215,39 @@ export default function AnalyticsDashboard() {
           Revenue per Bulan
         </h4>
         {revenue_chart.length === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-8">Belum ada data revenue.</p>
+          <p className="text-center text-slate-400 text-sm py-8">
+            Belum ada data revenue.
+          </p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={revenue_chart.map(d => ({ ...d, month: formatMonth(d.month) }))}
-              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false}
-                tickFormatter={(v) => `${(v / 1000000).toFixed(0)}jt`} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f1f5f9" }} />
+            <BarChart
+              data={revenue_chart.map((d) => ({
+                ...d,
+                month: formatMonth(d.month),
+              }))}
+              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#e2e8f0"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${(v / 1000000).toFixed(0)}jt`}
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "#f1f5f9" }}
+              />
               <Bar dataKey="revenue" radius={[6, 6, 0, 0]} fill="#6366f1" />
             </BarChart>
           </ResponsiveContainer>
@@ -110,16 +260,24 @@ export default function AnalyticsDashboard() {
           Top 5 Unit — Revenue Tertinggi
         </h4>
         {top_devices.length === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-4">Belum ada data.</p>
+          <p className="text-center text-slate-400 text-sm py-4">
+            Belum ada data.
+          </p>
         ) : (
           <div className="space-y-2">
             {top_devices.map((d, i) => (
               <div key={d.id} className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-400 w-4 shrink-0">#{i + 1}</span>
+                <span className="text-xs font-bold text-slate-400 w-4 shrink-0">
+                  #{i + 1}
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <p className="text-xs font-semibold text-slate-800 truncate">{d.label}</p>
-                    <p className="text-xs font-bold text-indigo-700 ml-2 shrink-0">{formatRupiah(d.total_revenue)}</p>
+                    <p className="text-xs font-semibold text-slate-800 truncate">
+                      {d.label}
+                    </p>
+                    <p className="text-xs font-bold text-indigo-700 ml-2 shrink-0">
+                      {formatRupiah(d.total_revenue)}
+                    </p>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-1.5">
                     <div
@@ -163,15 +321,25 @@ export default function AnalyticsDashboard() {
               {device_stats.map((d) => (
                 <tr key={d.id} className="hover:bg-white transition-colors">
                   <td className="py-2.5 px-4">
-                    <p className="font-semibold text-slate-800">{d.brand} {d.model}</p>
+                    <p className="font-semibold text-slate-800">
+                      {d.brand} {d.model}
+                    </p>
                     <p className="text-[10px] text-slate-400">{d.color}</p>
                   </td>
-                  <td className="py-2.5 px-4 text-right text-slate-600">{formatRupiah(d.purchase_price)}</td>
-                  <td className="py-2.5 px-4 text-right font-semibold text-emerald-700">{formatRupiah(d.total_revenue)}</td>
+                  <td className="py-2.5 px-4 text-right text-slate-600">
+                    {formatRupiah(d.purchase_price)}
+                  </td>
+                  <td className="py-2.5 px-4 text-right font-semibold text-emerald-700">
+                    {formatRupiah(d.total_revenue)}
+                  </td>
                   <td className="py-2.5 px-4 text-right">{d.days_rented}h</td>
-                  <td className="py-2.5 px-4 text-right">{d.total_transactions}x</td>
                   <td className="py-2.5 px-4 text-right">
-                    <span className={`font-bold ${d.roi_percent >= 100 ? "text-amber-600" : "text-slate-700"}`}>
+                    {d.total_transactions}x
+                  </td>
+                  <td className="py-2.5 px-4 text-right">
+                    <span
+                      className={`font-bold ${d.roi_percent >= 100 ? "text-amber-600" : "text-slate-700"}`}
+                    >
                       {d.roi_percent}%
                     </span>
                   </td>
@@ -183,7 +351,10 @@ export default function AnalyticsDashboard() {
       </div>
 
       <div className="text-right">
-        <button onClick={load} className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer">
+        <button
+          onClick={load}
+          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+        >
           <RefreshCw className="w-3 h-3" />
           Refresh data
         </button>

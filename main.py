@@ -437,24 +437,67 @@ def update_device(
     return device
 
 
+MIME_BY_EXT: dict[str, str] = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
+def _upload_image_to_supabase_storage(content: bytes, safe_name: str) -> Optional[str]:
+    """Upload satu gambar ke bucket Supabase Storage 'devices'.
+    Return URL publik absolut, atau None bila SUPABASE_URL/SUPABASE_SERVICE_KEY belum dikonfigurasi."""
+    supabase_url = os.getenv("SUPABASE_URL")
+    service_key = os.getenv("SUPABASE_SERVICE_KEY")
+    if not supabase_url or not service_key:
+        return None
+
+    base = supabase_url.rstrip("/")
+    mime = MIME_BY_EXT.get(os.path.splitext(safe_name)[1].lower(), "image/jpeg")
+    response = requests.post(
+        f"{base}/storage/v1/object/devices/{safe_name}",
+        headers={
+            "Authorization": f"Bearer {service_key}",
+            "apikey": service_key,
+            "x-upsert": "true",
+            "Content-Type": mime,
+        },
+        data=content,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return f"{base}/storage/v1/object/public/devices/{safe_name}"
+
+
 @app.post("/api/devices/upload-image", tags=["Admin - Devices"])
 def upload_device_image(
     _current_admin: Annotated[models.Admin, Depends(get_current_admin)],
     file: UploadFile = File(...),
 ):
-    """Protected: Upload device image and return the public URL for storage."""
+    """Protected: Upload device image — utama ke Supabase Storage (URL absolut), fallback lokal."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="File gambar wajib dipilih.")
 
     file_ext = os.path.splitext(file.filename)[1].lower() or ".png"
     safe_name = f"device_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}{file_ext}"
+    content = file.file.read()
+
+    # Utama: Supabase Storage -> URL absolut, tampil di lokal maupun Vercel tanpa
+    # tergantung folder uploads/ di mesin backend (Railway fs bersifat ephemeral).
+    try:
+        public_url = _upload_image_to_supabase_storage(content, safe_name)
+    except Exception as e:
+        print(f"Supabase Storage upload error: {e}")
+        public_url = None
+    if public_url:
+        return {"url": public_url}
+
+    # Fallback lokal (dev tanpa SUPABASE_URL / SUPABASE_SERVICE_KEY)
     file_path = os.path.join("uploads", "devices", safe_name)
-
     with open(file_path, "wb") as buffer:
-        buffer.write(file.file.read())
-
-    # Path relatif agar otomatis benar di lokal maupun production (frontend memakai API_BASE_URL).
-    # PUBLIC_BASE_URL bisa di-set untuk memaksa URL absolut (mis. integrasi eksternal).
+        buffer.write(content)
     base_url = os.getenv("PUBLIC_BASE_URL")
     path = f"/uploads/devices/{safe_name}"
     return {"url": f"{base_url.rstrip('/')}{path}" if base_url else path}

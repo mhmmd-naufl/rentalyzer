@@ -1,145 +1,138 @@
-# 📱 Notta Rent
+# Rentalyzer
 
-Notta Rent adalah project portfolio berbasis web yang dibuat untuk mengelola operasional penyewaan smartphone sekaligus menampilkan bagaimana data bisnis diproses, diorganisir, dan digunakan untuk analisis. Fokus project ini bukan hanya pada tampilan atau booking sederhana, tetapi juga pada kualitas data: transaksi dicatat dengan struktur yang konsisten, harga dibuat sebagai snapshot, status unit dipantau secara real-time, dan data bisa diekspor untuk kebutuhan reporting maupun dashboard analitik.
+Smartphone rental management system with a data-driven business workflow, built as a full-stack portfolio project for product operations, admin control, and business analytics.
 
-Project ini terdiri dari backend FastAPI untuk logika bisnis dan API, frontend React + Vite untuk pengalaman pelanggan dan admin, serta database yang bisa dipakai untuk lingkungan lokal maupun deployment. Sistem ini dirancang untuk menangani proses umum seperti:
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-0.115+-green?logo=fastapi" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite" alt="Vite" />
+  <img src="https://img.shields.io/badge/SQLite-Database-003B57?logo=sqlite" alt="SQLite" />
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python" alt="Python 3.10+" />
+</p>
 
-- katalog unit yang bisa dilihat publik
-- booking dengan validasi tanggal dan durasi sewa
-- pencatatan transaksi pelanggan dengan data yang siap dianalisis
-- pengelolaan admin dan status transaksi
-- arsip unit yang sudah tidak aktif
-- export data transaksi untuk kebutuhan operasional, insight, dan reporting
+## Overview
 
-Dari sisi portfolio, project ini menunjukkan kemampuan dalam membangun sistem end-to-end yang mencakup data entry, validation, data cleaning, data transformation, dan pemanfaatan data untuk keputusan bisnis.
+Rentalyzer is a web application designed to manage a smartphone rental business end-to-end. It combines customer-facing rental flows, an admin dashboard, and structured transaction data that is ready for reporting and analysis.
 
----
+This project is intended to demonstrate practical capabilities in:
 
-## Apa yang dibuat di project ini
+- full-stack application development
+- business process automation
+- inventory and booking management
+- API design and backend logic
+- admin operations and reporting
+- data-oriented portfolio thinking for analytics and business intelligence
 
-### 1. Public side
+## Why this project is valuable
 
-Pada sisi publik, pengguna dapat:
+This project is not only a booking app. It is designed to reflect how a real rental business operates in practice:
 
-- melihat daftar smartphone yang tersedia
-- melihat status tiap unit
-- memilih durasi sewa yang tersedia
-- mengisi data pelanggan untuk pemesanan
-- mendapatkan ringkasan harga dan periode sewa
-- diarahkan ke WhatsApp admin untuk konfirmasi lanjutan
+- inventory is monitored by device status
+- bookings are validated by date, duration, and pricing rules
+- transactions store pricing snapshots for accurate historical records
+- admin workflows can update order status and manage rental assets
+- reporting data can be exported for further analysis in Excel, SQL, or BI tools
 
-Flow utama dari publik adalah:
+This makes the project suitable for a portfolio because it shows both product thinking and data discipline.
 
-- user memilih unit
-- user mengisi nama, NIK, nomor WA, dan tanggal sewa
-- system memvalidasi data
-- order dibuat ke backend
-- admin dikirimkan notifikasi via WhatsApp dengan detail booking
+## Core Features
 
-### 2. Admin side
+### Customer-facing rental flow
 
-Pada sisi admin, sistem memungkinkan:
+- device catalog with availability status
+- booking form for customer information and rental duration
+- pricing calculation based on rental period
+- validation for dates and rental rules
+- WhatsApp handoff for order confirmation and communication
 
-- login dengan skema autentikasi sederhana berbasis JWT
-- melihat dashboard transaksi dan status unit
-- mengubah status transaksi seperti pending, active, completed, dan lain-lain
-- menambah atau memperbarui data unit
-- mengarsipkan unit tertentu agar tidak tampil lagi di katalog publik
-- mengekspor data transaksi ke CSV untuk kebutuhan operasional
+### Admin dashboard and operational control
 
-### 3. Data dan operasional
+- secure admin login using JWT-based authentication
+- order monitoring and transaction status updates
+- device management and stock visibility
+- status tracking for available, booked, active, overdue, completed, and canceled transactions
+- archived or inactive devices omitted from public catalog display
+- CSV export for operational and analytical use
 
-Project ini juga fokus pada data yang rapi dan siap dipakai untuk analisis, seperti:
+### Business/data layer
 
-- data transaksi menyimpan snapshot harga saat booking dibuat agar histori tetap akurat
-- status unit dipantau agar tidak terjadi double-booking atau overlap data
-- daftar unit dan transaksi bisa difilter berdasarkan rentang waktu tertentu
-- data bisa diekspor ke CSV untuk kebutuhan reporting, dashboard analitik, atau audit data
-- format data disusun agar mudah dikonsumsi untuk analisis performa usaha
+- transaction records capture pricing at booking time
+- rental lifecycle is tracked to reduce overlap and double-booking
+- overdue automation helps keep inventory and status consistent
+- exportable records support reporting and dashboarding needs
+- system structure is organized for future analytics, forecasting, and business insights
 
-Secara umum, project ini mencerminkan alur data yang mirip dengan proses data analytics: input transaksi, validasi, struktur data yang konsisten, lalu output yang siap dipakai untuk insight bisnis.
-
----
-
-## Tech stack
+## Tech Stack
 
 - Backend: FastAPI
 - Frontend: React + Vite
-- Database: SQLite untuk development, PostgreSQL-compatible storage untuk deployment
-- Auth: JWT
+- Database: SQLite for local development, PostgreSQL-compatible structure for deployment scenarios
+- Authentication: JWT
 - Validation: Pydantic
-- Styling: React UI + custom CSS/Tailwind-style utility classes
+- Scheduling: APScheduler
+- Security: CORS, rate limiting, and HTTP hardening middleware
+- Styling: custom React UI + CSS
 
----
-
-## Data pipeline & analytics angle
-
-Project ini tidak hanya berfungsi sebagai aplikasi operasional, tetapi juga berperan sebagai contoh data pipeline yang sederhana namun relevan untuk portfolio data analyst.
-
-Beberapa aspek yang menonjol:
-
-- data transaksi dibangun dari event nyata: booking, durasi sewa, status, dan pembayaran
-- setiap transaksi menyimpan informasi yang dapat dipakai untuk analisis performa usaha
-- data dapat difilter berdasarkan rentang waktu untuk kebutuhan reporting harian atau bulanan
-- data unit dan transaksi bisa diekspor untuk diproses lebih lanjut di Excel, SQL, atau dashboard BI
-- struktur project membuat proses data lebih mudah dipahami dan dipelajari sebagai bagian dari workflow analisis bisnis
-
-Dengan kata lain, project ini menampilkan kemampuan di tiga area sekaligus:
-
-1. product / business logic
-2. data engineering basics
-3. business analytics readiness
-
----
-
-## Struktur dasar project
+## Project Structure
 
 ```text
 Rentalyzer/
-├── main.py
-├── auth.py
-├── database.py
-├── models.py
-├── schemas.py
-├── seed_db.py
-├── README.md
-├── requirements.txt
+├── auth.py                  # admin auth and JWT flow
+├── database.py             # database configuration and session management
+├── main.py                 # FastAPI app, endpoints, scheduler, and business logic
+├── models.py               # SQLAlchemy models
+├── schemas.py              # request/response schemas
+├── seed_db.py              # seed data for default admin and sample devices
+├── requirements.txt        # Python dependencies
+├── README.md               # project documentation
+├── prd.md                  # product requirements document
+├── schema.md               # database/schema context
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.js
+│   ├── index.html
 │   └── src/
 │       ├── App.jsx
 │       ├── components/
 │       ├── services/
-│       └── assets/
-└── uploads/
+│       ├── assets/
+│       ├── main.jsx
+│       └── index.css
+├── uploads/
+│   └── devices/
+└── .venv/
 ```
 
----
+## Getting Started
 
-## Cara jalanin project
+### 1. Clone the repository
 
-### Backend
+```bash
+git clone <your-repository-url>
+cd Rentalyzer
+```
 
-Pastikan Python sudah tersedia, lalu jalankan:
+### 2. Set up the backend
 
 ```bash
 python -m venv venv
+
 # Windows
 venv\Scripts\activate
-# Linux/macOS
+
+# macOS / Linux
 source venv/bin/activate
 
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-API utama biasanya bisa diakses di:
+The API documentation will be available at:
 
-- http://localhost:8000
 - http://localhost:8000/docs
+- http://localhost:8000/redoc
 
-### Frontend
+### 3. Set up the frontend
 
 ```bash
 cd frontend
@@ -147,42 +140,56 @@ npm install
 npm run dev
 ```
 
-Frontend biasanya bisa dibuka di:
+Then open:
 
 - http://localhost:5173
 
----
+## Default Admin Login
 
-## Default admin login
+```text
+Username: admin
+Password: admin123
+```
 
-Untuk akses area admin, akun default yang dipakai biasanya:
+## API and Business Flow
 
-- username: admin
-- password: admin123
+The system follows a practical business workflow:
 
-Gunakan akun ini untuk masuk ke panel admin di halaman yang sesuai.
+1. customer browses available devices
+2. customer selects rental duration and device
+3. booking is validated and saved with pricing snapshot
+4. admin reviews and manages transaction status
+5. overdue and inventory rules are enforced automatically
+6. exportable records support business reporting and analysis
 
----
+## Portfolio Highlights
 
-## Catatan penting
+This project demonstrates a combination of:
 
-- Project ini dibuat untuk kebutuhan operasional rental smartphone, tetapi juga dimaksudkan sebagai project portfolio dengan pendekatan data-driven.
-- Readme ini dibuat untuk menjelaskan konteks bisnis, cara kerja aplikasi, serta bagaimana data diproses dan digunakan untuk insight.
-- Informasi sensitif seperti credential default, konfigurasi deployment, atau detail environment produksi tidak perlu ditampilkan terlalu detail di README.
-- Fokus utama README adalah menjelaskan project, fungsi utama, teknologi, serta nilai analitik yang bisa ditunjukkan dalam portfolio.
+- product design thinking
+- operational workflow management
+- backend API implementation
+- frontend application development
+- structured data handling
+- business analytics readiness
 
----
+It is a strong example of a portfolio project that looks beyond a simple CRUD app and instead reflects real business logic and data discipline.
 
-## Ringkasan singkat
+## Future Improvements
 
-Notta Rent adalah aplikasi web untuk mengelola penyewaan smartphone dari sisi pelanggan dan admin. Sistem ini membantu proses booking, pengecekan status unit, pengelolaan transaksi, dan kontrol operasional dengan alur yang sederhana namun tetap terdokumentasi dengan baik.
+Planned improvements may include:
 
-## 🤝 Kontribusi
+- enhanced reporting dashboard with charts and KPIs
+- user roles and permission management
+- automated notifications via WhatsApp or email
+- deeper analytics for utilization, revenue, and retention
+- PostgreSQL deployment setup for production readiness
+- CI/CD and Docker support for deployment automation
 
-Pull request terbuka. Untuk perubahan besar, buka issue terlebih dahulu untuk diskusi.
+## License
 
----
+This project is open for learning and portfolio use. Please check the repository license if you plan to reuse or adapt it commercially.
 
-## 📄 Lisensi
+## Contributing
 
-MIT License — bebas digunakan dan dimodifikasi untuk keperluan apapun.
+Pull requests are welcome. For larger changes, please open an issue first to discuss the idea and scope.

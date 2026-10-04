@@ -1,25 +1,53 @@
-import React, { useState } from 'react';
-import { X, Send, ShieldCheck, Calendar, User, Phone, IdCard, AlertCircle } from 'lucide-react';
-import { ADMIN_WA_NUMBER, formatRupiah } from '../services/dataService';
+import { useState } from "react";
+import {
+  X,
+  Send,
+  ShieldCheck,
+  Calendar,
+  User,
+  Phone,
+  IdCard,
+  AlertCircle,
+} from "lucide-react";
+import { ADMIN_WA_NUMBER, formatRupiah } from "../services/dataService";
 
-export default function BookingModal({ device, transactions = [], onClose, onBookingSuccess }) {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+export default function BookingModal({
+  device,
+  transactions = [],
+  onClose,
+  onBookingSuccess,
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  })();
+  const [selectedDuration, setSelectedDuration] = useState(24);
+  const getCurrentPrice = () => {
+    if (selectedDuration === 3) return device.price_3h || 0;
+    if (selectedDuration === 6) return device.price_6h || 0;
+    if (selectedDuration === 9) return device.price_9h || 0;
+    if (selectedDuration === 12) return device.price_12h || 0;
+    return device.price_24h || device.daily_rent_price || 0;
+  };
 
   const [formData, setFormData] = useState({
-    name: '',
-    nik: '',
-    phone: '',
+    name: "",
+    nik: "",
+    phone: "",
     startDate: today,
     endDate: tomorrow,
-    guaranteeType: 'KTP Asli',
+    guaranteeType: "KTP Asli",
   });
 
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   // Find active booking dates for this device to prevent conflicts
   const activeBookings = transactions.filter(
-    (t) => t.device_id === device.id && (t.status === 'Active' || t.status === 'Pending')
+    (t) =>
+      t.device_id === device.id &&
+      (t.status === "Active" || t.status === "Pending"),
   );
 
   // Check if chosen range conflicts with existing bookings
@@ -49,63 +77,81 @@ export default function BookingModal({ device, transactions = [], onClose, onBoo
   };
 
   const durationDays = calculateDays();
-  const totalAmount = durationDays * device.daily_rent_price;
+  const selectedPackagePrice =
+    getCurrentPrice() || device.daily_rent_price || 0;
+  const totalAmount = selectedPackagePrice;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name.trim() || !formData.nik.trim() || !formData.phone.trim()) {
-      setError('Mohon lengkapi seluruh formulir data diri.');
+    if (
+      !formData.name.trim() ||
+      !formData.nik.trim() ||
+      !formData.phone.trim()
+    ) {
+      setError("Mohon lengkapi seluruh formulir data diri.");
       return;
     }
 
     if (formData.nik.length < 16) {
-      setError('NIK KTP harus berjumlah minimal 16 digit.');
+      setError("NIK KTP harus berjumlah minimal 16 digit.");
       return;
     }
 
     if (formData.startDate < today) {
-      setError('Tanggal mulai sewa tidak boleh di masa lalu.');
+      setError("Tanggal mulai sewa tidak boleh di masa lalu.");
       return;
     }
 
     if (formData.endDate <= formData.startDate) {
-      setError('Tanggal selesai sewa harus lebih lama dari tanggal mulai.');
+      setError("Tanggal selesai sewa harus lebih lama dari tanggal mulai.");
       return;
     }
 
-    const conflictError = checkDateConflict(formData.startDate, formData.endDate);
+    const conflictError = checkDateConflict(
+      formData.startDate,
+      formData.endDate,
+    );
     if (conflictError) {
       setError(conflictError);
       return;
     }
 
-    // Build payload matching FastAPI /api/transactions schema
+    const normalizedPhone = formData.phone.replace(/[\s\-()]/g, "").trim();
     const bookingPayload = {
       device_id: device.id,
-      customer_name: formData.name,
-      customer_nik: formData.nik,
-      customer_phone: formData.phone,
+      customer_name: formData.name.trim(),
+      customer_nik: formData.nik.trim(),
+      customer_phone: normalizedPhone,
       guarantee_type: formData.guaranteeType,
       start_date: formData.startDate,
       end_date_expected: formData.endDate,
-      snapshot_rent_price: device.daily_rent_price,
+      duration_hours: selectedDuration,
+      snapshot_rent_price: selectedPackagePrice,
       duration_days: durationDays,
       total_amount: totalAmount,
     };
 
-    onBookingSuccess(bookingPayload);
+    const saved = await onBookingSuccess(bookingPayload);
+    if (!saved) return;
 
-    // Formatted WhatsApp Handoff Message (Checkout)
-    const message = `Halo Admin Rentalyzer! 👋
+    if (!ADMIN_WA_NUMBER) {
+      setError(
+        "Nomor WhatsApp admin belum diatur. Masukkan VITE_ADMIN_WA_NUMBER di environment frontend.",
+      );
+      return;
+    }
+
+    const message = `Halo Admin Notta Rent!
 Saya ingin mengonfirmasi booking sewa smartphone:
 
-📱 *Unit:* ${device.brand} ${device.model}
-🏷️ *Harga Sewa:* ${formatRupiah(device.daily_rent_price)} / hari
-📅 *Periode:* ${formData.startDate} s/d ${formData.endDate} (${durationDays} Hari)
-💰 *Total Biaya:* ${formatRupiah(totalAmount)}
+*Unit:* ${device.brand} ${device.model}
+Durasi:* ${selectedDuration} Jam
+*Harga Sewa:* ${formatRupiah(selectedPackagePrice)} / paket
+*Periode:* ${formData.startDate} s/d ${formData.endDate} (${durationDays} Hari)
+*Total Biaya:* ${formatRupiah(totalAmount)}
 
-👤 *Data Penyewa:*
+*Data Penyewa:*
 • Nama Lengkap: ${formData.name}
 • NIK KTP: ${formData.nik}
 • WhatsApp: ${formData.phone}
@@ -116,16 +162,15 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
     const encodedMessage = encodeURIComponent(message);
     const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedMessage}`;
 
-    window.open(waUrl, '_blank');
+    window.open(waUrl, "_blank");
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
-        
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 relative">
+        <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 relative">
           <button
             onClick={onClose}
             className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
@@ -135,9 +180,12 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
           <div className="inline-block bg-indigo-500/20 text-indigo-300 text-xs font-semibold px-2.5 py-1 rounded-md mb-2 border border-indigo-400/20">
             Smart Booking Form
           </div>
-          <h3 className="text-xl font-bold">{device.brand} {device.model}</h3>
+          <h3 className="text-xl font-bold">
+            {device.brand} {device.model}
+          </h3>
           <p className="text-slate-300 text-xs mt-1">
-            {formatRupiah(device.daily_rent_price)} / hari &bull; SN/IMEI: {device.imei_serial}
+            {formatRupiah(device.daily_rent_price)} / hari &bull; SN/IMEI:{" "}
+            {device.imei_serial}
           </p>
         </div>
 
@@ -162,7 +210,9 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
                 required
                 placeholder="Contoh: Budi Santoso"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all"
               />
             </div>
@@ -182,7 +232,12 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
                   maxLength={16}
                   placeholder="3201xxxxxxxxxxxx"
                   value={formData.nik}
-                  onChange={(e) => setFormData({ ...formData, nik: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      nik: e.target.value.replace(/\D/g, ""),
+                    })
+                  }
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all"
                 />
               </div>
@@ -199,7 +254,9 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
                   required
                   placeholder="08123456789"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all"
                 />
               </div>
@@ -224,7 +281,10 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
                     setFormData({
                       ...formData,
                       startDate: newStart,
-                      endDate: formData.endDate <= newStart ? newStart : formData.endDate,
+                      endDate:
+                        formData.endDate <= newStart
+                          ? newStart
+                          : formData.endDate,
                     });
                   }}
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all"
@@ -243,7 +303,9 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
                   required
                   min={formData.startDate || today}
                   value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, endDate: e.target.value })
+                  }
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all"
                 />
               </div>
@@ -259,24 +321,75 @@ Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kas
               <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <select
                 value={formData.guaranteeType}
-                onChange={(e) => setFormData({ ...formData, guaranteeType: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, guaranteeType: e.target.value })
+                }
                 className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-indigo-600 transition-all cursor-pointer"
               >
-                <option value="KTP Asli">KTP Asli (Wajib ditinggal selama sewa)</option>
+                <option value="KTP Asli">
+                  KTP Asli (Wajib ditinggal selama sewa)
+                </option>
                 <option value="SIM A / C">SIM A / C Asli</option>
-                <option value="Deposit Tunai">Deposit Tunai (Jaminan Saldo)</option>
+                <option value="Deposit Tunai">
+                  Deposit Tunai (Jaminan Saldo)
+                </option>
               </select>
+            </div>
+          </div>
+
+          {/* Rental Duration Options */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wider">
+              Pilih Durasi Sewa
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[3, 6, 9, 12, 24].map((hours) => {
+                const price =
+                  hours === 3
+                    ? device.price_3h
+                    : hours === 6
+                      ? device.price_6h
+                      : hours === 9
+                        ? device.price_9h
+                        : hours === 12
+                          ? device.price_12h
+                          : device.price_24h || device.daily_rent_price;
+                const isSelected = selectedDuration === hours;
+                return (
+                  <button
+                    key={hours}
+                    type="button"
+                    onClick={() => setSelectedDuration(hours)}
+                    className={`rounded-xl border px-2.5 py-2 text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50"
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-wide">
+                      {hours} Jam
+                    </div>
+                    <div className="text-[11px] font-semibold mt-0.5">
+                      {formatRupiah(price || 0)}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Auto-Calculate Summary */}
           <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex justify-between items-center">
             <div>
-              <p className="text-xs text-indigo-700 font-medium">Estimasi Biaya ({durationDays} Hari)</p>
-              <p className="text-xl font-bold text-indigo-950">{formatRupiah(totalAmount)}</p>
+              <p className="text-xs text-indigo-700 font-medium">
+                Estimasi Biaya ({selectedDuration} Jam)
+              </p>
+              <p className="text-xl font-bold text-indigo-950">
+                {formatRupiah(getCurrentPrice())}
+              </p>
             </div>
             <div className="text-right text-xs text-slate-500">
-              {formatRupiah(device.daily_rent_price)} / hari
+              {formatRupiah(getCurrentPrice())} / paket
             </div>
           </div>
 

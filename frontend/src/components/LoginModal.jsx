@@ -1,20 +1,28 @@
-import React, { useState } from 'react';
-import { Lock, User, Eye, EyeOff, X, AlertCircle, ShieldCheck } from 'lucide-react';
-import { loginAdmin } from '../services/api';
+import { useState } from "react";
+import {
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  X,
+  AlertCircle,
+  ShieldCheck,
+} from "lucide-react";
+import { loginAdmin } from "../services/api";
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
 
     const res = await loginAdmin(username, password);
     setIsLoading(false);
@@ -30,9 +38,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
-        
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6 relative">
+        <div className="bg-linear-to-r from-slate-900 to-indigo-950 text-white p-6 relative">
           <button
             onClick={onClose}
             className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800"
@@ -45,7 +52,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
           </div>
           <h3 className="text-xl font-bold">Login Admin Dashboard</h3>
           <p className="text-slate-300 text-xs mt-1">
-            Masuk dengan akun terverifikasi untuk mengelola pesanan & data analitik.
+            Masuk dengan akun terverifikasi untuk mengelola pesanan & data
+            analitik.
           </p>
         </div>
 
@@ -82,7 +90,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -94,7 +102,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
@@ -105,7 +117,14 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             <div>
               <p className="font-semibold">Akun Default Terpasang:</p>
               <p className="text-slate-600 text-[11px] mt-0.5">
-                Username: <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono">admin</code> &bull; Password: <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono">admin123</code>
+                Username:{" "}
+                <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono">
+                  admin
+                </code>{" "}
+                &bull; Password:{" "}
+                <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono">
+                  admin123
+                </code>
               </p>
             </div>
           </div>
@@ -116,7 +135,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
           >
             <Lock className="w-4 h-4" />
-            <span>{isLoading ? 'Memverifikasi...' : 'Masuk ke Dashboard'}</span>
+            <span>{isLoading ? "Memverifikasi..." : "Masuk ke Dashboard"}</span>
           </button>
         </form>
       </div>

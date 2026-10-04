@@ -1,6 +1,6 @@
-# 📱 Rentalyzer
+# 📱 Notta Rent
 
-> Sistem manajemen penyewaan smartphone berbasis web — dirancang dengan pendekatan **data-first** untuk memfasilitasi operasional sekaligus menjadi *data pipeline* untuk analisis performa bisnis.
+> Sistem manajemen penyewaan smartphone berbasis web — dirancang dengan pendekatan **data-first** untuk memfasilitasi operasional sekaligus menjadi _data pipeline_ untuk analisis performa bisnis.
 
 ![Stack](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi)
 ![Stack](https://img.shields.io/badge/Frontend-React_Vite-61DAFB?style=for-the-badge&logo=react)
@@ -12,17 +12,19 @@
 ## ✨ Fitur Utama
 
 ### 🛍️ Customer Side (Publik)
+
 - **Katalog Real-time** — Menampilkan daftar HP dengan status `Available` / `Booked` / `Rented` yang diambil langsung dari database
 - **Smart Booking Form** — Input Nama, NIK KTP, No. WhatsApp, durasi sewa, dan tipe jaminan dengan validasi otomatis
 - **Conflict Detection** — Mencegah double-booking dengan pengecekan tanggal secara real-time
 - **WhatsApp Handoff** — Setelah booking, pelanggan langsung diarahkan ke WhatsApp Admin dengan pesan yang sudah terformat
 
 ### 🖥️ Admin Side (Protected)
+
 - **Secure Login** — Autentikasi berbasis JWT, session tersimpan di localStorage
 - **Quick Stats Dashboard** — Omzet bulan ini, HP aktif disewa, unit overdue, total aset aktif
 - **Transaction Control** — Ubah status transaksi: `Pending → Active → Completed / Overdue / Canceled`
 - **Manual Penalty Input** — Tambah denda keterlambatan langsung dari dashboard
-- **Master Data HP** — Tambah unit baru dan arsipkan (*soft delete*) unit yang sudah tidak aktif
+- **Master Data HP** — Tambah unit baru dan arsipkan (_soft delete_) unit yang sudah tidak aktif
 - **CSV Export** — Export raw data transaksi siap pakai untuk Looker Studio / Power BI
 
 ---
@@ -62,15 +64,15 @@
 
 ## 🛡️ Keamanan
 
-| Layer | Implementasi |
-|---|---|
-| **Autentikasi** | JWT (HS256), expire 24 jam |
-| **Password** | Bcrypt hashing via `passlib` |
-| **Rate Limiting** | 60 req/menit (publik), 10 req/menit (booking) via `slowapi` |
-| **HTTP Headers** | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `HSTS` |
-| **CORS** | Whitelist origin dari `.env` |
-| **Input Validation** | Pydantic v2 — sanitasi XSS, validasi NIK 16 digit, format nomor WA |
-| **Soft Delete** | Device tidak pernah dihapus dari DB, hanya diarsipkan |
+| Layer                | Implementasi                                                            |
+| -------------------- | ----------------------------------------------------------------------- |
+| **Autentikasi**      | JWT (HS256), expire 24 jam                                              |
+| **Password**         | Bcrypt hashing via `passlib`                                            |
+| **Rate Limiting**    | 60 req/menit (publik), 10 req/menit (booking) via `slowapi`             |
+| **HTTP Headers**     | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `HSTS` |
+| **CORS**             | Whitelist origin dari `.env`                                            |
+| **Input Validation** | Pydantic v2 — sanitasi XSS, validasi NIK 16 digit, format nomor WA      |
+| **Soft Delete**      | Device tidak pernah dihapus dari DB, hanya diarsipkan                   |
 
 ---
 
@@ -114,6 +116,7 @@ rentalyzer/
 ## 🚀 Cara Menjalankan (Development)
 
 ### Prerequisites
+
 - Python 3.10+
 - Node.js 18+
 
@@ -148,6 +151,7 @@ cp .env.example .env
 ```
 
 Isi `.env`:
+
 ```env
 ENVIRONMENT=development
 JWT_SECRET_KEY=your_random_secret_key_here
@@ -188,9 +192,9 @@ Frontend berjalan di `http://localhost:5173`
 
 ## 🔑 Akun Admin Default
 
-| Field | Value |
-|---|---|
-| Username | `admin` |
+| Field    | Value      |
+| -------- | ---------- |
+| Username | `admin`    |
 | Password | `admin123` |
 
 > ⚠️ **Ganti password admin** setelah pertama kali login di lingkungan produksi.
@@ -203,20 +207,21 @@ Akses halaman admin di: `http://localhost:5173/admin`
 
 Rentalyzer dirancang sebagai sumber data utama untuk analisis bisnis. CSV yang diekspor dari Admin Dashboard mencakup:
 
-| Kolom | Keterangan |
-|---|---|
-| `transaction_id` | ID unik transaksi |
-| `status` | Pending / Active / Completed / Overdue / Canceled |
-| `customer_name`, `customer_nik` | Data penyewa |
-| `device_brand`, `device_model`, `device_imei` | Data unit |
-| `purchase_price` | Harga modal (untuk kalkulasi ROI) |
-| `snapshot_daily_rent_price` | Harga sewa saat transaksi terjadi |
-| `start_date`, `end_date_expected`, `end_date_actual` | Periode sewa |
-| `duration_days` | Durasi aktual |
-| `total_amount` | Pendapatan sewa |
-| `penalty_fee` | Denda keterlambatan |
+| Kolom                                                | Keterangan                                        |
+| ---------------------------------------------------- | ------------------------------------------------- |
+| `transaction_id`                                     | ID unik transaksi                                 |
+| `status`                                             | Pending / Active / Completed / Overdue / Canceled |
+| `customer_name`, `customer_nik`                      | Data penyewa                                      |
+| `device_brand`, `device_model`, `device_imei`        | Data unit                                         |
+| `purchase_price`                                     | Harga modal (untuk kalkulasi ROI)                 |
+| `snapshot_daily_rent_price`                          | Harga sewa saat transaksi terjadi                 |
+| `start_date`, `end_date_expected`, `end_date_actual` | Periode sewa                                      |
+| `duration_days`                                      | Durasi aktual                                     |
+| `total_amount`                                       | Pendapatan sewa                                   |
+| `penalty_fee`                                        | Denda keterlambatan                               |
 
 ### Metrik Analitik yang Didukung
+
 - 📈 **Asset Utilization Rate** — Hari sewa vs hari idle per unit
 - 💰 **Return on Investment (ROI)** — Break-even point per unit HP
 - 📅 **Monthly Recurring Revenue (MRR)** — Tren pendapatan harian/bulanan
@@ -232,6 +237,7 @@ python test_security.py
 ```
 
 Suite test mencakup 11 skenario:
+
 - ✅ CORS enforcement
 - ✅ Admin endpoint tanpa token (harus 401)
 - ✅ Admin endpoint dengan token invalid (harus 401)

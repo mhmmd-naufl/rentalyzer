@@ -1,36 +1,57 @@
-import React, { useState } from 'react';
-import { Search, Sparkles, CheckCircle2, Clock, Ban, Wrench, Shield, Check, Calendar } from 'lucide-react';
-import { formatRupiah } from '../services/dataService';
+import { useState } from "react";
+import {
+  Search,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+  Wrench,
+  Shield,
+  Check,
+} from "lucide-react";
+import { formatRupiah } from "../services/dataService";
 
-export default function Catalog({ devices, transactions = [], onSelectDevice }) {
-  const [selectedBrand, setSelectedBrand] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+export default function Catalog({
+  devices,
+  transactions = [],
+  onSelectDevice,
+}) {
+  const [selectedBrand, setSelectedBrand] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const [onlyAvailable, setOnlyAvailable] = useState(false);
 
   // Exclude Archived devices from public catalog
-  const publicDevices = devices.filter((d) => d.status !== 'Archived');
+  const publicDevices = devices.filter((d) => d.status !== "Archived");
 
-  const brands = ['All', ...new Set(publicDevices.map((d) => d.brand))];
+  const brands = ["All", ...new Set(publicDevices.map((d) => d.brand))];
 
   const filteredDevices = publicDevices.filter((device) => {
-    const matchesBrand = selectedBrand === 'All' || device.brand === selectedBrand;
+    const matchesBrand =
+      selectedBrand === "All" || device.brand === selectedBrand;
     const matchesSearch =
       device.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
       device.brand.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesAvailability = onlyAvailable ? device.status === 'Available' : true;
+    const matchesAvailability = onlyAvailable
+      ? device.status === "Available"
+      : true;
     return matchesBrand && matchesSearch && matchesAvailability;
   });
 
   // Find latest active booking end date for a device
   const getBookedUntilDate = (deviceId) => {
     const activeTx = transactions.find(
-      (t) => t.device_id === deviceId && (t.status === 'Active' || t.status === 'Pending')
+      (t) =>
+        t.device_id === deviceId &&
+        (t.status === "Active" || t.status === "Pending"),
     );
     if (!activeTx || !activeTx.end_date_expected) return null;
 
     try {
       const d = new Date(activeTx.end_date_expected);
-      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      return d.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
     } catch {
       return activeTx.end_date_expected;
     }
@@ -38,22 +59,22 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
 
   const getStatusBadge = (status, bookedUntil) => {
     switch (status) {
-      case 'Available':
+      case "Available":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
             Tersedia
           </span>
         );
-      case 'Booked':
-      case 'Rented':
+      case "Booked":
+      case "Rented":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-100 border border-slate-700 shadow-xs">
             <Clock className="w-3 h-3 text-amber-400" />
-            {bookedUntil ? `Booked until ${bookedUntil}` : 'Booked'}
+            {bookedUntil ? `Booked until ${bookedUntil}` : "Booked"}
           </span>
         );
-      case 'Maintenance':
+      case "Maintenance":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
             <Wrench className="w-3 h-3 text-slate-500" />
@@ -68,7 +89,7 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
   return (
     <div className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 sm:p-10 text-white mb-10 shadow-xl relative overflow-hidden">
+      <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 sm:p-10 text-white mb-10 shadow-xl relative overflow-hidden">
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-medium border border-indigo-400/20 mb-4">
             <Sparkles className="w-3.5 h-3.5" />
@@ -78,7 +99,8 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
             Sewa iPhone & Android Flagship Harian Tanpa Ribet.
           </h1>
           <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
-            Unit original terawat untuk konten kreator, acara, liburan, dan pengujian aplikasi. Proses verifikasi instan via WhatsApp.
+            Unit original terawat untuk konten kreator, acara, liburan, dan
+            pengujian aplikasi. Proses verifikasi instan via WhatsApp.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-300">
@@ -104,11 +126,11 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
               onClick={() => setSelectedBrand(brand)}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all shrink-0 cursor-pointer ${
                 selectedBrand === brand
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
               }`}
             >
-              {brand === 'All' ? 'Semua Brand' : brand}
+              {brand === "All" ? "Semua Brand" : brand}
             </button>
           ))}
         </div>
@@ -141,13 +163,16 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
       {/* Grid of Devices */}
       {filteredDevices.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-2xs">
-          <p className="text-slate-500 text-sm">Tidak ada smartphone yang cocok dengan kriteria pencarian Anda.</p>
+          <p className="text-slate-500 text-sm">
+            Tidak ada smartphone yang cocok dengan kriteria pencarian Anda.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredDevices.map((device) => {
-            const isAvailable = device.status === 'Available';
-            const isBookedOrRented = device.status === 'Booked' || device.status === 'Rented';
+            const isAvailable = device.status === "Available";
+            const isBookedOrRented =
+              device.status === "Booked" || device.status === "Rented";
             const bookedUntil = getBookedUntilDate(device.id);
 
             return (
@@ -155,8 +180,8 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
                 key={device.id}
                 className={`bg-white rounded-2xl border transition-all duration-200 flex flex-col group overflow-hidden ${
                   isBookedOrRented
-                    ? 'border-slate-300 shadow-2xs bg-slate-50/50'
-                    : 'border-slate-200 hover:shadow-md shadow-2xs'
+                    ? "border-slate-300 shadow-2xs bg-slate-50/50"
+                    : "border-slate-200 hover:shadow-md shadow-2xs"
                 }`}
               >
                 {/* Image & Status Badge (Greyscale Visual Cue for Booked/Rented) */}
@@ -165,7 +190,9 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
                     src={device.image}
                     alt={device.model}
                     className={`w-full h-full object-cover transition-transform duration-300 ${
-                      isBookedOrRented ? 'grayscale opacity-75 contrast-95' : 'group-hover:scale-105'
+                      isBookedOrRented
+                        ? "grayscale opacity-75 contrast-95"
+                        : "group-hover:scale-105"
                     }`}
                   />
                   <div className="absolute top-3 right-3">
@@ -179,7 +206,9 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
                 {/* Device Details */}
                 <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
-                    <h3 className={`font-bold text-base leading-snug ${isBookedOrRented ? 'text-slate-600' : 'text-slate-900'}`}>
+                    <h3
+                      className={`font-bold text-base leading-snug ${isBookedOrRented ? "text-slate-600" : "text-slate-900"}`}
+                    >
                       {device.model}
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 font-mono">
@@ -189,11 +218,34 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
 
                   <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-[11px] text-slate-400 uppercase font-semibold">Harga Sewa</span>
-                      <p className={`text-lg font-bold ${isBookedOrRented ? 'text-slate-600' : 'text-indigo-700'}`}>
+                      <span className="text-[11px] text-slate-400 uppercase font-semibold">
+                        Harga Sewa
+                      </span>
+                      <p
+                        className={`text-lg font-bold ${isBookedOrRented ? "text-slate-600" : "text-indigo-700"}`}
+                      >
                         {formatRupiah(device.daily_rent_price)}
-                        <span className="text-xs text-slate-500 font-normal"> /hari</span>
+                        <span className="text-xs text-slate-500 font-normal">
+                          {" "}
+                          /hari
+                        </span>
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {[3, 6, 9, 12, 24].map((hours) => {
+                          const price =
+                            device[`price_${hours}h`] ||
+                            (hours === 24 ? device.daily_rent_price : 0);
+                          if (!price) return null;
+                          return (
+                            <span
+                              key={hours}
+                              className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+                            >
+                              {hours}j {formatRupiah(price)}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <button
@@ -201,11 +253,15 @@ export default function Catalog({ devices, transactions = [], onSelectDevice }) 
                       disabled={!isAvailable}
                       className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         isAvailable
-                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs'
-                          : 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300 font-medium'
+                          ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+                          : "bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300 font-medium"
                       }`}
                     >
-                      {isAvailable ? 'Sewa Sekarang' : (bookedUntil ? `Booked s/d ${bookedUntil}` : 'Tidak Tersedia')}
+                      {isAvailable
+                        ? "Sewa Sekarang"
+                        : bookedUntil
+                          ? `Booked s/d ${bookedUntil}`
+                          : "Tidak Tersedia"}
                     </button>
                   </div>
                 </div>

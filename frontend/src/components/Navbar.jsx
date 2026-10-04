@@ -1,10 +1,15 @@
-import React from 'react';
-import { Smartphone, ShieldCheck, LogOut, ExternalLink, MessageCircle } from 'lucide-react';
-import { ADMIN_WA_NUMBER } from '../services/dataService';
+import {
+  Smartphone,
+  ShieldCheck,
+  LogOut,
+  ExternalLink,
+  MessageCircle,
+} from "lucide-react";
+import { ADMIN_WA_NUMBER } from "../services/dataService";
 
-export default function Navbar({ 
-  isAdminRoute, 
-  adminProfile, 
+export default function Navbar({
+  isAdminRoute,
+  adminProfile,
   onLogout,
   onNavigateHome,
 }) {
@@ -12,9 +17,8 @@ export default function Navbar({
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          
           {/* Logo & Tagline */}
-          <div 
+          <div
             onClick={onNavigateHome}
             className="flex items-center gap-3 cursor-pointer select-none"
           >
@@ -23,19 +27,23 @@ export default function Navbar({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-xl tracking-tight text-slate-900">Rentalyzer</span>
+                <span className="font-bold text-xl tracking-tight text-slate-900">
+                  Notta Rent
+                </span>
                 {isAdminRoute ? (
                   <span className="text-xs bg-slate-900 text-white font-semibold px-2 py-0.5 rounded-full">
                     Admin Portal
                   </span>
                 ) : (
                   <span className="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded-full border border-indigo-200/60">
-                    Rental HP
+                    Sewa HP
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
-                {isAdminRoute ? 'Sistem Manajemen & Kontrol Operasional' : 'Sewa Smartphone Premium Harian'}
+                {isAdminRoute
+                  ? "Sistem Manajemen & Kontrol Operasional"
+                  : "Sewa Smartphone Premium Harian"}
               </p>
             </div>
           </div>
@@ -51,7 +59,7 @@ export default function Navbar({
                     <span>{adminProfile.username}</span>
                   </div>
                 )}
-                
+
                 <button
                   onClick={onNavigateHome}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
@@ -84,7 +92,6 @@ export default function Navbar({
               </a>
             )}
           </div>
-
         </div>
       </div>
     </header>

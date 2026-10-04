@@ -34,6 +34,14 @@ class Device(Base):
     daily_rent_price: Mapped[float] = mapped_column(Float, nullable=False)
     color: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default="Hitam")
     image: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # Hourly rental pricing columns
+    price_3h: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    price_6h: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    price_9h: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    price_12h: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+    price_24h: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=0.0)
+
     status: Mapped[DeviceStatus] = mapped_column(
         Enum(DeviceStatus),
         default=DeviceStatus.AVAILABLE,

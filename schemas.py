@@ -15,6 +15,11 @@ class DeviceBase(BaseModel):
     daily_rent_price: float = Field(..., gt=0, description="Harga sewa per hari harus lebih besar dari 0")
     color: Optional[str] = Field(default="Hitam", max_length=50)
     image: Optional[str] = Field(default=None, max_length=500)
+    price_3h: Optional[float] = Field(default=0.0, ge=0)
+    price_6h: Optional[float] = Field(default=0.0, ge=0)
+    price_9h: Optional[float] = Field(default=0.0, ge=0)
+    price_12h: Optional[float] = Field(default=0.0, ge=0)
+    price_24h: Optional[float] = Field(default=0.0, ge=0)
     status: DeviceStatus = DeviceStatus.AVAILABLE
 
     @field_validator("brand", "model", "imei_serial")
@@ -26,6 +31,29 @@ class DeviceBase(BaseModel):
 
 class DeviceCreate(DeviceBase):
     pass
+
+
+class DeviceUpdate(BaseModel):
+    brand: Optional[str] = Field(default=None, min_length=2, max_length=50)
+    model: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    imei_serial: Optional[str] = Field(default=None, min_length=8, max_length=100)
+    purchase_price: Optional[float] = Field(default=None, gt=0)
+    daily_rent_price: Optional[float] = Field(default=None, gt=0)
+    color: Optional[str] = Field(default=None, max_length=50)
+    image: Optional[str] = Field(default=None, max_length=500)
+    price_3h: Optional[float] = Field(default=None, ge=0)
+    price_6h: Optional[float] = Field(default=None, ge=0)
+    price_9h: Optional[float] = Field(default=None, ge=0)
+    price_12h: Optional[float] = Field(default=None, ge=0)
+    price_24h: Optional[float] = Field(default=None, ge=0)
+    status: Optional[DeviceStatus] = None
+
+    @field_validator("brand", "model", "imei_serial")
+    @classmethod
+    def sanitize_strings(cls, v: str) -> str:
+        if v is None:
+            return v
+        return html.escape(v.strip())
 
 
 class DeviceOut(DeviceBase):
@@ -88,6 +116,7 @@ class TransactionCreate(BaseModel):
     guarantee_type: str = Field(..., min_length=3, max_length=50)
     start_date: datetime
     end_date_expected: datetime
+    duration_hours: Optional[int] = Field(default=24, ge=1, le=24)
     # Optional: sent by frontend, backend recalculates server-side
     snapshot_rent_price: Optional[float] = None
     duration_days: Optional[int] = None

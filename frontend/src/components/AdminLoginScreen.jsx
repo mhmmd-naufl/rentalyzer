@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
-import { Lock, User, Eye, EyeOff, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react';
-import { loginAdmin } from '../services/api';
+import { useState } from "react";
+import {
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ShieldCheck,
+  ArrowLeft,
+} from "lucide-react";
+import { loginAdmin } from "../services/api";
 
 export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin123");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
 
     const res = await loginAdmin(username, password);
     setIsLoading(false);
@@ -27,15 +35,16 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
   return (
     <div className="min-h-[85vh] flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-md w-full shadow-xl border border-slate-200 overflow-hidden">
-        
         {/* Header */}
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-8 text-center relative">
+        <div className="bg-linear-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-8 text-center relative">
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/10">
             <Lock className="w-6 h-6 text-indigo-400" />
           </div>
-          <h2 className="text-xl font-bold tracking-tight">Portal Khusus Internal</h2>
+          <h2 className="text-xl font-bold tracking-tight">
+            Portal Khusus Internal
+          </h2>
           <p className="text-xs text-slate-300 mt-1">
-            Rentalyzer System & Analytics Management
+            Notta Rent System & Analytics Management
           </p>
         </div>
 
@@ -72,7 +81,7 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +93,11 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
@@ -94,7 +107,14 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
             <div>
               <p className="font-semibold text-[11px]">Kredensial Default:</p>
               <p className="text-slate-600 text-[11px]">
-                User: <code className="bg-white px-1 py-0.5 rounded font-mono">admin</code> &bull; Pass: <code className="bg-white px-1 py-0.5 rounded font-mono">admin123</code>
+                User:{" "}
+                <code className="bg-white px-1 py-0.5 rounded font-mono">
+                  admin
+                </code>{" "}
+                &bull; Pass:{" "}
+                <code className="bg-white px-1 py-0.5 rounded font-mono">
+                  admin123
+                </code>
               </p>
             </div>
           </div>
@@ -104,7 +124,7 @@ export default function AdminLoginScreen({ onLoginSuccess, onBackToHome }) {
             disabled={isLoading}
             className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-xs cursor-pointer disabled:opacity-50"
           >
-            {isLoading ? 'Memverifikasi...' : 'Masuk ke Dashboard'}
+            {isLoading ? "Memverifikasi..." : "Masuk ke Dashboard"}
           </button>
 
           <button

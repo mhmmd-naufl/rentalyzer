@@ -169,7 +169,7 @@ def seed_default_admin(db: Annotated[Session, Depends(get_db)]) -> models.Admin:
     default_admin = models.Admin(
         username="admin",
         hashed_password=get_password_hash("admin123"),
-        full_name="Super Admin Rentalyzer",
+        full_name="Super Admin Notta Rent",
     )
     db.add(default_admin)
     db.commit()

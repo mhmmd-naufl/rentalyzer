@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchAdminDevices, restoreDevice } from '../services/api';
 
 const ArchivedDevices = () => {
@@ -20,7 +20,34 @@ const ArchivedDevices = () => {
     };
 
     useEffect(() => {
-        loadArchivedData();
+        let isActive = true;
+
+        const fetchArchivedData = async () => {
+            setLoading(true);
+
+            try {
+                const allDevices = await fetchAdminDevices();
+                const filtered = allDevices.filter(device => device.status === 'Archived');
+
+                if (isActive) {
+                    setArchivedDevices(filtered);
+                }
+            } catch (error) {
+                if (isActive) {
+                    alert("Gagal memuat data arsip: " + error.message);
+                }
+            } finally {
+                if (isActive) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchArchivedData();
+
+        return () => {
+            isActive = false;
+        };
     }, []);
 
     // Fungsi eksekusi tombol pulihkan

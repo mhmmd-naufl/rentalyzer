@@ -8,9 +8,10 @@ const INITIAL_DEVICES = [
     purchase_price: 21500000,
     daily_rent_price: 350000,
     status: "Available",
-    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=600&auto=format&fit=crop&q=80",
     color: "Natural Titanium",
-    created_at: "2024-01-15T08:00:00Z"
+    created_at: "2024-01-15T08:00:00Z",
   },
   {
     id: 2,
@@ -20,9 +21,10 @@ const INITIAL_DEVICES = [
     purchase_price: 13500000,
     daily_rent_price: 200000,
     status: "Booked",
-    image: "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?w=600&auto=format&fit=crop&q=80",
     color: "Sierra Blue",
-    created_at: "2024-01-20T09:30:00Z"
+    created_at: "2024-01-20T09:30:00Z",
   },
   {
     id: 3,
@@ -32,9 +34,10 @@ const INITIAL_DEVICES = [
     purchase_price: 17500000,
     daily_rent_price: 300000,
     status: "Available",
-    image: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=600&auto=format&fit=crop&q=80",
     color: "Phantom Black",
-    created_at: "2024-02-01T10:15:00Z"
+    created_at: "2024-02-01T10:15:00Z",
   },
   {
     id: 4,
@@ -44,9 +47,10 @@ const INITIAL_DEVICES = [
     purchase_price: 14000000,
     daily_rent_price: 250000,
     status: "Rented",
-    image: "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1580910051074-3eb694886505?w=600&auto=format&fit=crop&q=80",
     color: "Mint",
-    created_at: "2024-02-10T11:00:00Z"
+    created_at: "2024-02-10T11:00:00Z",
   },
   {
     id: 5,
@@ -56,9 +60,10 @@ const INITIAL_DEVICES = [
     purchase_price: 12000000,
     daily_rent_price: 180000,
     status: "Available",
-    image: "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&auto=format&fit=crop&q=80",
     color: "Midnight",
-    created_at: "2024-02-15T14:20:00Z"
+    created_at: "2024-02-15T14:20:00Z",
   },
   {
     id: 6,
@@ -68,10 +73,11 @@ const INITIAL_DEVICES = [
     purchase_price: 15000000,
     daily_rent_price: 270000,
     status: "Maintenance",
-    image: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=600&auto=format&fit=crop&q=80",
+    image:
+      "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=600&auto=format&fit=crop&q=80",
     color: "Bay Blue",
-    created_at: "2024-03-01T08:00:00Z"
-  }
+    created_at: "2024-03-01T08:00:00Z",
+  },
 ];
 
 const INITIAL_TRANSACTIONS = [
@@ -91,7 +97,7 @@ const INITIAL_TRANSACTIONS = [
     penalty_fee: 0,
     status: "Pending",
     created_at: "2024-03-09T14:30:00Z",
-    updated_at: "2024-03-09T14:30:00Z"
+    updated_at: "2024-03-09T14:30:00Z",
   },
   {
     id: 1002,
@@ -109,7 +115,7 @@ const INITIAL_TRANSACTIONS = [
     penalty_fee: 0,
     status: "Active",
     created_at: "2024-03-04T10:00:00Z",
-    updated_at: "2024-03-05T09:00:00Z"
+    updated_at: "2024-03-05T09:00:00Z",
   },
   {
     id: 1003,
@@ -127,43 +133,80 @@ const INITIAL_TRANSACTIONS = [
     penalty_fee: 0,
     status: "Completed",
     created_at: "2024-02-19T11:20:00Z",
-    updated_at: "2024-02-23T18:00:00Z"
-  }
+    updated_at: "2024-02-23T18:00:00Z",
+  },
 ];
 
 export const getStoredDevices = () => {
-  const data = localStorage.getItem("rentalyzer_devices");
+  const data =
+    localStorage.getItem("notta_rent_devices") ??
+    localStorage.getItem("rentalyzer_devices");
   if (!data) {
-    localStorage.setItem("rentalyzer_devices", JSON.stringify(INITIAL_DEVICES));
+    localStorage.setItem("notta_rent_devices", JSON.stringify(INITIAL_DEVICES));
     return INITIAL_DEVICES;
   }
   return JSON.parse(data);
 };
 
 export const saveStoredDevices = (devices) => {
+  localStorage.setItem("notta_rent_devices", JSON.stringify(devices));
   localStorage.setItem("rentalyzer_devices", JSON.stringify(devices));
 };
 
 export const getStoredTransactions = () => {
-  const data = localStorage.getItem("rentalyzer_transactions");
+  const data =
+    localStorage.getItem("notta_rent_transactions") ??
+    localStorage.getItem("rentalyzer_transactions");
   if (!data) {
-    localStorage.setItem("rentalyzer_transactions", JSON.stringify(INITIAL_TRANSACTIONS));
+    localStorage.setItem(
+      "notta_rent_transactions",
+      JSON.stringify(INITIAL_TRANSACTIONS),
+    );
     return INITIAL_TRANSACTIONS;
   }
   return JSON.parse(data);
 };
 
 export const saveStoredTransactions = (transactions) => {
+  localStorage.setItem("notta_rent_transactions", JSON.stringify(transactions));
   localStorage.setItem("rentalyzer_transactions", JSON.stringify(transactions));
 };
 
-// WhatsApp Admin number default (bisa diganti)
-export const ADMIN_WA_NUMBER = "6281234567890";
+const normalizeWhatsAppNumber = (value) => {
+  const cleaned = String(value || "").replace(/\D/g, "");
+  if (!cleaned) return "";
+  if (cleaned.startsWith("62")) return cleaned;
+  if (cleaned.startsWith("0")) return `62${cleaned.slice(1)}`;
+  return `62${cleaned}`;
+};
+
+const getAdminWaNumber = () => {
+  if (typeof window !== "undefined") {
+    const runtimeOverride =
+      window.__ADMIN_WA_NUMBER__ ||
+      localStorage.getItem("notta_rent_admin_wa") ||
+      localStorage.getItem("rentalyzer_admin_wa");
+
+    if (runtimeOverride) {
+      return normalizeWhatsAppNumber(runtimeOverride);
+    }
+  }
+
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    const envValue = import.meta.env.VITE_ADMIN_WA_NUMBER;
+    if (envValue) return normalizeWhatsAppNumber(envValue);
+  }
+
+  return "6287729233209";
+};
+
+// WhatsApp Admin number default (bisa di-override via runtime atau VITE_ADMIN_WA_NUMBER)
+export const ADMIN_WA_NUMBER = getAdminWaNumber();
 
 export const formatRupiah = (number) => {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
-    minimumFractionDigits: 0
+    minimumFractionDigits: 0,
   }).format(number);
 };

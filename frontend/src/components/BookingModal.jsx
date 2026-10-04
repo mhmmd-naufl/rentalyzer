@@ -174,9 +174,16 @@ Saya ingin mengonfirmasi booking sewa smartphone:
 Mohon instruksi pembayaran DP dan verifikasi jadwal pengambilan unit. Terima kasih!`;
 
     const encodedMessage = encodeURIComponent(message);
-    const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedMessage}`;
+    const webUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodedMessage}`;
+    const appUrl = `whatsapp://send?phone=${ADMIN_WA_NUMBER}&text=${encodedMessage}`;
 
-    window.location.href = waUrl;
+    // Coba buka aplikasi WA dulu; kalau gagal (desktop/app gak ada) fallback ke web
+    const fallbackTimer = setTimeout(() => {
+      window.location.href = webUrl;
+    }, 1500);
+    window.addEventListener("blur", () => clearTimeout(fallbackTimer), { once: true });
+    window.location.href = appUrl;
+
     onClose();
   };
 

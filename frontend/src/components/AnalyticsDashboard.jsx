@@ -27,7 +27,7 @@ const COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
 const formatMonth = (key) => {
   const [year, month] = key.split("-");
   const d = new Date(year, month - 1);
-  return d.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
+  return d.toLocaleDateString("id-ID", { month: "short", year: "4-digit" });
 };
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -134,8 +134,8 @@ export default function AnalyticsDashboard() {
           <span className="font-medium">
             {aiLoading
               ? "Mengambil data terbaru..."
-              : aiSource === "gemini"
-                ? "Sumber: Gemini AI"
+              : aiSource === "openrouter"
+                ? "Sumber: OpenRouter AI"
                 : "Sumber: Fallback"}
           </span>
           <span>
@@ -143,7 +143,7 @@ export default function AnalyticsDashboard() {
               ? `Diperbarui pada ${new Date(updatedAt).toLocaleString("id-ID", {
                   day: "2-digit",
                   month: "short",
-                  year: "numeric",
+                  year: "4-digit",
                   hour: "2-digit",
                   minute: "2-digit",
                 })}`

@@ -834,48 +834,67 @@ def _fallback_ai_summary(payload: dict) -> str:
 
 
 def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
-    """Generate admin-facing summary via Google AI Studio (Gemini REST API)."""
-    api_key = os.getenv("GOOGLE_AI_API_KEY")
+    """Generate admin-facing summary via OpenRouter Chat Completions API (multi-model fallback)."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         return _fallback_ai_summary(payload), "fallback"
 
-    try:
-        system_prompt = (
-            "Kamu adalah business analyst untuk usaha rental smartphone. "
-            "Berikan ringkasan singkat dalam Bahasa Indonesia yang profesional untuk admin. "
-            "Fokus pada revenue, unit paling laris, masalah seperti overdue atau pending, dan satu rekomendasi aksi. "
-            "Jawab maksimal 4 kalimat, rapi, dan bersifat bisnis/operasional."
-        )
-        
-        model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-        body = {
-            "systemInstruction": {"parts": [{"text": system_prompt}]},
-            "contents": [
-                {"role": "user", "parts": [{"text": json.dumps(payload, ensure_ascii=False)}]}
-            ],
-            "generationConfig": {"temperature": 0.4, "maxOutputTokens": 2048},
-        }
+    system_prompt = (
+        "Kamu adalah business analyst untuk usaha rental smartphone. "
+        "Berikan ringkasan singkat dalam Bahasa Indonesia yang profesional untuk admin. "
+        "Fokus pada revenue, unit paling laris, masalah seperti overdue atau pending, dan satu rekomendasi aksi. "
+        "Jawab maksimal 4 kalimat, rapi, dan bersifat bisnis/operasional."
+    )
 
-        # 429/5xx biasanya transient (gangguan sesaat) — coba ulang sebelum jatuh ke fallback
-        response = None
-        for attempt in range(3):
-            response = requests.post(url, params={"key": api_key}, json=body, timeout=60)
-            if response.status_code in (429, 500, 502, 503, 504) and attempt < 2:
-                print(f"Gemini {response.status_code}, coba ulang {attempt + 1}/2 ...")
-                time.sleep(2 * (attempt + 1))
-                continue
-            break
-        response.raise_for_status()
-        data = response.json()
-        content = data["candidates"][0]["content"]["parts"][0]["text"]
-        if content:
-            print(f"[AI Summary] OK via Gemini ({model})")
-            return content.strip(), "gemini"
-            
-    except Exception as e:
-        print(f"Gemini Error: {e}") 
-        pass
+    raw_models = os.getenv("OPENROUTER_MODELS") or os.getenv("OPENROUTER_MODEL", "openrouter/auto")
+    models_list = [m.strip() for m in raw_models.split(",") if m.strip()]
+    if not models_list:
+        models_list = ["openrouter/auto"]
+    url = "https://openrouter.ai/api/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    site_url = os.getenv("OPENROUTER_SITE_URL")
+    site_name = os.getenv("OPENROUTER_SITE_NAME", "Rentalyzer")
+    if site_url:
+        headers["HTTP-Referer"] = site_url
+    if site_name:
+        headers["X-Title"] = site_name
+
+    last_error: Exception | None = None
+    for model in models_list:
+        body = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+            "temperature": 0.4,
+            "max_tokens": 512,
+        }
+        try:
+            response = None
+            for attempt in range(2):
+                response = requests.post(url, headers=headers, json=body, timeout=60)
+                if response.status_code in (429, 500, 502, 503, 504) and attempt < 1:
+                    print(f"OpenRouter {model} {response.status_code}, coba ulang {attempt + 1}/1 ...")
+                    time.sleep(2 * (attempt + 1))
+                    continue
+                break
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+            if content:
+                print(f"[AI Summary] OK via OpenRouter ({model})")
+                return content.strip(), "openrouter"
+        except Exception as e:
+            last_error = e
+            print(f"OpenRouter Error ({model}): {e} — switch ke model berikutnya...")
+            continue
+
+    if last_error:
+        print(f"OpenRouter semua model gagal: {last_error}")
 
     return _fallback_ai_summary(payload), "fallback"
 
@@ -978,7 +997,7 @@ def get_ai_analytics_summary(
     return {
         "summary": summary,
         "source": source,
-        "source_label": "Gemini AI" if source == "gemini" else "Fallback",
+        "source_label": "OpenRouter AI" if source == "openrouter" else "Fallback",
         "generated_at": generated_at,
     }
 

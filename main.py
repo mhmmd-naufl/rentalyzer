@@ -833,6 +833,32 @@ def _fallback_ai_summary(payload: dict) -> str:
     return " ".join(parts[:4])
 
 
+def _clean_ai_summary(text: str, max_sentences: int = 3) -> str:
+    """Batasi jumlah kalimat & pastikan tidak terpotong di tengah kalimat."""
+    import re
+
+    text = (text or "").strip()
+    if not text:
+        return text
+    # Potong ke N kalimat lengkap saja (support . ! ?)
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    if len(sentences) > max_sentences:
+        sentences = sentences[:max_sentences]
+    cleaned = " ".join(sentences).strip()
+    # Kalau hasil bersih tidak diakhiri tanda baca kalimat -> kemungkinan terpotong,
+    # mundur ke kalimat lengkap terakhir.
+    if cleaned and cleaned[-1] not in ".!?":
+        if len(sentences) > 1:
+            cleaned = " ".join(sentences[:-1]).strip()
+        else:
+            # Satu kalimat panjang kepotong: buang ekor yang menggantung
+            cleaned = re.sub(r"\s+\S*$", "", cleaned).strip()
+            if cleaned and cleaned[-1] not in ".!?":
+                cleaned += "."
+    return cleaned
+
+
 def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
     """Generate admin-facing summary via OpenRouter Chat Completions API (multi-model fallback)."""
     api_key = os.getenv("OPENROUTER_API_KEY")
@@ -843,7 +869,8 @@ def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
         "Kamu adalah business analyst untuk usaha rental smartphone. "
         "Berikan ringkasan singkat dalam Bahasa Indonesia yang profesional untuk admin. "
         "Fokus pada revenue, unit paling laris, masalah seperti overdue atau pending, dan satu rekomendasi aksi. "
-        "Jawab maksimal 4 kalimat, rapi, dan bersifat bisnis/operasional."
+        "WAJIB: maksimal 3 kalimat lengkap. Setiap kalimat harus selesai dan diakhiri titik. "
+        "Jangan menulis kalimat ke-4. Jangan memotong kalimat di tengah."
     )
 
     raw_models = os.getenv("OPENROUTER_MODELS") or os.getenv("OPENROUTER_MODEL", "openrouter/auto")
@@ -871,7 +898,7 @@ def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
             "temperature": 0.4,
-            "max_tokens": 512,
+            "max_tokens": 800,
         }
         try:
             response = None
@@ -884,10 +911,17 @@ def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
                 break
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            # Kalau kepotong limit token -> anggap gagal, pindah ke model berikutnya
+            if choice.get("finish_reason") == "length":
+                print(f"OpenRouter ({model}) terpotong limit token — switch ke model berikutnya...")
+                continue
+            content = choice["message"]["content"]
             if content:
-                print(f"[AI Summary] OK via OpenRouter ({model})")
-                return content.strip(), "openrouter"
+                cleaned = _clean_ai_summary(content, max_sentences=3)
+                if cleaned:
+                    print(f"[AI Summary] OK via OpenRouter ({model})")
+                    return cleaned, "openrouter"
         except Exception as e:
             last_error = e
             print(f"OpenRouter Error ({model}): {e} — switch ke model berikutnya...")

@@ -833,7 +833,7 @@ def _fallback_ai_summary(payload: dict) -> str:
     return " ".join(parts[:4])
 
 
-def _clean_ai_summary(text: str, max_sentences: int = 3) -> str:
+def _clean_ai_summary(text: str, max_sentences: int = 2) -> str:
     """Batasi jumlah kalimat & pastikan tidak terpotong di tengah kalimat."""
     import re
 
@@ -867,10 +867,12 @@ def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
 
     system_prompt = (
         "Kamu adalah business analyst untuk usaha rental smartphone. "
-        "Berikan ringkasan singkat dalam Bahasa Indonesia yang profesional untuk admin. "
-        "Fokus pada revenue, unit paling laris, masalah seperti overdue atau pending, dan satu rekomendasi aksi. "
-        "WAJIB: maksimal 3 kalimat lengkap. Setiap kalimat harus selesai dan diakhiri titik. "
-        "Jangan menulis kalimat ke-4. Jangan memotong kalimat di tengah."
+        "Berikan ringkasan MINIMALIS dalam Bahasa Indonesia untuk admin. "
+        "WAJIB: maksimal 2 kalimat pendek, tiap kalimat maksimal ~15 kata. "
+        "Kalimat 1: kondisi utama (revenue / unit laris / overdue). "
+        "Kalimat 2 (opsional): satu aksi singkat. "
+        "Setiap kalimat harus selesai dan diakhiri titik. "
+        "Jangan menulis kalimat ke-3. Jangan memotong kalimat di tengah."
     )
 
     raw_models = os.getenv("OPENROUTER_MODELS") or os.getenv("OPENROUTER_MODEL", "openrouter/auto")
@@ -918,7 +920,7 @@ def _generate_ai_business_summary(payload: dict) -> tuple[str, str]:
                 continue
             content = choice["message"]["content"]
             if content:
-                cleaned = _clean_ai_summary(content, max_sentences=3)
+                cleaned = _clean_ai_summary(content, max_sentences=2)
                 if cleaned:
                     print(f"[AI Summary] OK via OpenRouter ({model})")
                     return cleaned, "openrouter"

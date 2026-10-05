@@ -27,7 +27,7 @@ const COLORS = ["#6366f1", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"];
 const formatMonth = (key) => {
   const [year, month] = key.split("-");
   const d = new Date(year, month - 1);
-  return d.toLocaleDateString("id-ID", { month: "short", year: "4-digit" });
+  return d.toLocaleDateString("id-ID", { month: "short", year: "numeric" });
 };
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -143,7 +143,7 @@ export default function AnalyticsDashboard() {
               ? `Diperbarui pada ${new Date(updatedAt).toLocaleString("id-ID", {
                   day: "2-digit",
                   month: "short",
-                  year: "4-digit",
+                  year: "numeric",
                   hour: "2-digit",
                   minute: "2-digit",
                 })}`
